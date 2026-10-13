@@ -1,0 +1,328 @@
+{% extends 'marks/base.html' %}
+
+{% block title %}Dashboard | School Marks Analysis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Marks Analysis & Dashboard</h1>
+        <p class="page-subtitle">Real-time performance analytics, grade distributions, and student insights.</p>
+    </div>
+
+    <!-- Class & Academic Year Filter Dropdown -->
+    <div class="d-flex align-items-center gap-2">
+        <form method="GET" action="{% url 'dashboard' %}" class="d-flex align-items-center gap-2">
+            <select name="class_id" class="form-select fw-semibold" onchange="this.form.submit()">
+                {% for c in classes %}
+                    <option value="{{ c.id }}" {% if current_class and current_class.id == c.id %}selected{% endif %}>
+                        {{ c.class_name }} {{ c.division }} ({{ c.academic_year.name }})
+                    </option>
+                {% empty %}
+                    <option value="">No classes available</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% if current_class %}
+            <a href="{% url 'excel_export' current_class.id %}" class="btn-custom btn-success-custom">
+                <i class="fa-solid fa-file-excel"></i> Export Excel
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if not has_data %}
+    <div class="card-custom text-center py-5">
+        <i class="fa-solid fa-folder-open text-muted mb-3" style="font-size: 3rem;"></i>
+        <h4>No Data Available</h4>
+        <p class="text-muted">Please create a class or click "Load Sample Std III A" in the sidebar to populate demonstration data.</p>
+        <div class="d-flex justify-content-center gap-2 mt-3">
+            <a href="{% url 'seed_sample_data' %}" class="btn-custom btn-primary-custom">
+                <i class="fa-solid fa-bolt me-1"></i> Load Sample Data
+            </a>
+            <a href="{% url 'class_list' %}" class="btn-custom btn-outline-custom">
+                <i class="fa-solid fa-plus me-1"></i> Create Class
+            </a>
+        </div>
+    </div>
+{% else %}
+
+    <!-- Metric Summary Cards -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon icon-blue">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="metric-data">
+                <h3>{{ students_count }}</h3>
+                <p>Total Enrolled Students</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon icon-purple">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div class="metric-data">
+                <h3>{{ class_overview.class_avg_percentage }}%</h3>
+                <p>Class Average Score</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon icon-green">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="metric-data">
+                <h3>{{ class_overview.overall_pass_percentage }}%</h3>
+                <p>Overall Pass Rate ({{ class_overview.pass_count }}/{{ class_overview.active_students }})</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon icon-amber">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <div class="metric-data">
+                <h3>
+                    {% if class_overview.toppers %}
+                        {{ class_overview.toppers.0.overall_percentage }}%
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h3>
+                <p>Highest Score ({% if class_overview.toppers %}{{ class_overview.toppers.0.student_name }}{% else %}-{% endif %})</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Visualizations -->
+    <div class="charts-grid">
+        <!-- Average Marks Per Subject -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h4><i class="fa-solid fa-chart-bar text-primary me-2"></i>Subject Performance Averages (%)</h4>
+            </div>
+            <div style="position: relative; height: 280px;">
+                <canvas id="subjectAverageChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Pass vs Fail Donut Chart -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h4><i class="fa-solid fa-chart-pie text-success me-2"></i>Pass vs Fail Ratio</h4>
+            </div>
+            <div style="position: relative; height: 280px;">
+                <canvas id="passFailChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subject Grade Distribution Chart -->
+    <div class="card-custom">
+        <div class="card-header-custom">
+            <h4><i class="fa-solid fa-layer-group text-info me-2"></i>Grade Distribution per Subject</h4>
+        </div>
+        <div style="position: relative; height: 320px;">
+            <canvas id="subjectGradeDistChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Lists Row: Toppers & Needs Attention -->
+    <div class="row g-4">
+        <!-- Toppers List -->
+        <div class="col-lg-6">
+            <div class="card-custom h-100">
+                <div class="card-header-custom">
+                    <h4><i class="fa-solid fa-award text-warning me-2"></i>Top Performers (Rank 1 - 5)</h4>
+                </div>
+                <div class="table-responsive">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Roll</th>
+                                <th>Student Name</th>
+                                <th>Total Score</th>
+                                <th>Percentage</th>
+                                <th>Grade</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in class_overview.toppers %}
+                                <tr>
+                                    <td>
+                                        {% if t.rank == 1 %}
+                                            <span class="badge bg-warning text-dark"><i class="fa-solid fa-crown me-1"></i>1st</span>
+                                        {% elif t.rank == 2 %}
+                                            <span class="badge bg-secondary"><i class="fa-solid fa-medal me-1"></i>2nd</span>
+                                        {% elif t.rank == 3 %}
+                                            <span class="badge bg-dark"><i class="fa-solid fa-medal me-1"></i>3rd</span>
+                                        {% else %}
+                                            <span class="fw-bold text-muted">#{{ t.rank }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ t.roll_number }}</td>
+                                    <td class="fw-semibold">{{ t.student_name }}</td>
+                                    <td>{{ t.total_obtained }} / {{ t.total_out_of }}</td>
+                                    <td class="fw-bold text-primary">{{ t.overall_percentage }}%</td>
+                                    <td><span class="badge-grade badge-{{ t.overall_grade|lower }}">{{ t.overall_grade }}</span></td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6" class="text-center text-muted">No student records found.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Needs Attention List (Grades D & E) -->
+        <div class="col-lg-6">
+            <div class="card-custom h-100">
+                <div class="card-header-custom">
+                    <h4><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Needs Improvement (Grades D & E)</h4>
+                </div>
+                <div class="table-responsive">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Roll</th>
+                                <th>Student Name</th>
+                                <th>Overall %</th>
+                                <th>Grade</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for n in class_overview.needs_attention %}
+                                <tr>
+                                    <td>{{ n.roll_number }}</td>
+                                    <td class="fw-semibold">{{ n.student_name }}</td>
+                                    <td class="fw-bold text-danger">{{ n.overall_percentage }}%</td>
+                                    <td><span class="badge-grade badge-{{ n.overall_grade|lower }}">{{ n.overall_grade }}</span></td>
+                                    <td>
+                                        <a href="{% url 'class_detail' current_class.id %}" class="btn btn-sm btn-outline-primary">
+                                            View Report
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-success py-4">
+                                        <i class="fa-solid fa-circle-check fs-4 d-block mb-1"></i>
+                                        Great job! All students are performing above Grade D.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_data %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const chartData = JSON.parse('{{ chart_data_json|escapejs }}');
+
+        // 1. Subject Average Bar Chart
+        const ctxAvg = document.getElementById('subjectAverageChart').getContext('2d');
+        new Chart(ctxAvg, {
+            type: 'bar',
+            data: {
+                labels: chartData.subject_labels,
+                datasets: [{
+                    label: 'Subject Average %',
+                    data: chartData.subject_averages,
+                    backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                    borderColor: '#2563eb',
+                    borderWidth: 1.5,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: value => value + '%' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // 2. Pass vs Fail Donut Chart
+        const ctxPassFail = document.getElementById('passFailChart').getContext('2d');
+        new Chart(ctxPassFail, {
+            type: 'doughnut',
+            data: {
+                labels: ['Passed', 'Failed / Needs Improvement'],
+                datasets: [{
+                    data: [chartData.pass_count, chartData.fail_count],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // 3. Subject Grade Distribution Stacked Bar Chart
+        const ctxGradeDist = document.getElementById('subjectGradeDistChart').getContext('2d');
+        
+        const grades = ['A', 'B', 'C', 'D', 'E', 'AB'];
+        const gradeColors = {
+            'A': '#10b981',
+            'B': '#3b82f6',
+            'C': '#eab308',
+            'D': '#f97316',
+            'E': '#ef4444',
+            'AB': '#64748b'
+        };
+
+        const datasets = grades.map(g => ({
+            label: 'Grade ' + g,
+            data: chartData.subject_grade_dist.map(item => item[g] || 0),
+            backgroundColor: gradeColors[g],
+            borderRadius: 4
+        }));
+
+        new Chart(ctxGradeDist, {
+            type: 'bar',
+            data: {
+                labels: chartData.subject_labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } }
+                },
+                plugins: {
+                    legend: { position: 'top' }
+                }
+            }
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

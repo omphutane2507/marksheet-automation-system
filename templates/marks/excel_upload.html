@@ -1,0 +1,76 @@
+{% extends 'marks/base.html' %}
+
+{% block title %}Excel Import | School Marks Analysis{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Excel Import & Batch Upload</h1>
+        <p class="page-subtitle">Upload multi-sheet Excel workbooks matching your school format to instantly import marks.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h4><i class="fa-solid fa-file-excel text-success me-2"></i>Upload Excel Workbook</h4>
+            </div>
+
+            <form method="POST" action="{% url 'excel_upload' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">1. Select Target Class & Division</label>
+                    {{ form.classroom }}
+                    <small class="text-muted d-block mt-1">Select the target class to receive student marks.</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">2. Choose Excel File (.xlsx)</label>
+                    {{ form.excel_file }}
+                    <small class="text-muted d-block mt-1">Must contain individual subject sheets (e.g. English, Maths, Computer).</small>
+                </div>
+
+                <button type="submit" class="btn-custom btn-primary-custom w-100 justify-content-center py-3">
+                    <i class="fa-solid fa-cloud-arrow-up me-2"></i> Validate & Import Workbook
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Instructions & Format Guide -->
+    <div class="col-lg-5">
+        <div class="card-custom bg-light">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-circle-info text-primary me-2"></i>Excel Sheet Format Requirements</h5>
+            
+            <ul class="list-unstyled d-flex flex-direction-column gap-2 text-muted small">
+                <li class="d-flex align-items-start gap-2 mb-2">
+                    <i class="fa-solid fa-check-circle text-success mt-1"></i>
+                    <div><strong>Sheet Names:</strong> Each subject should have its own sheet named after the subject (e.g., <code>English</code>, <code>Maths</code>, <code>Computer</code>).</div>
+                </li>
+                <li class="d-flex align-items-start gap-2 mb-2">
+                    <i class="fa-solid fa-check-circle text-success mt-1"></i>
+                    <div><strong>Columns Required:</strong> <code>SR.NO.</code>, <code>NAME OF STUDENT</code>, <code>MARKS</code>.</div>
+                </li>
+                <li class="d-flex align-items-start gap-2 mb-2">
+                    <i class="fa-solid fa-check-circle text-success mt-1"></i>
+                    <div><strong>Absent Flag:</strong> Write <code>AB</code> or leave empty for absent students.</div>
+                </li>
+                <li class="d-flex align-items-start gap-2 mb-2">
+                    <i class="fa-solid fa-shield-halved text-primary mt-1"></i>
+                    <div><strong>Pre-Validation:</strong> The system automatically verifies that marks do not exceed out-of limits before saving.</div>
+                </li>
+            </ul>
+
+            <div class="p-3 bg-white rounded border mt-3">
+                <small class="fw-bold text-dark d-block mb-1"><i class="fa-solid fa-lightbulb text-warning me-1"></i>Quick Sample Data</small>
+                <small class="text-muted">Don't have an Excel file ready? You can load the built-in 5-student sample dataset with one click.</small>
+                <a href="{% url 'seed_sample_data' %}" class="btn btn-sm btn-outline-primary mt-2 d-block text-center">
+                    <i class="fa-solid fa-bolt me-1"></i> Load Std III A Sample Dataset
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
