@@ -4,9 +4,14 @@ from marks import api_views
 
 urlpatterns = [
     # -----------------------------------------------------------------------
-    # Web Views
+    # Public Pages (no login required)
     # -----------------------------------------------------------------------
-    path('', views.dashboard_view, name='dashboard'),
+    path('', views.landing_view, name='landing'),
+
+    # -----------------------------------------------------------------------
+    # App Pages (login required — handled by @login_required in views.py)
+    # -----------------------------------------------------------------------
+    path('dashboard/', views.dashboard_view, name='dashboard'),
     path('classes/', views.class_list_view, name='class_list'),
     path('classes/<int:class_id>/', views.class_detail_view, name='class_detail'),
     path('classes/<int:class_id>/marks/', views.marks_entry_view, name='marks_entry'),
@@ -20,11 +25,7 @@ urlpatterns = [
     # -----------------------------------------------------------------------
     # REST API — for Power BI Web connector & external integrations
     # -----------------------------------------------------------------------
-    path('api/marks/', api_views.MarksListAPI.as_view(), name='api_marks'),
-    path('api/students/', api_views.StudentListAPI.as_view(), name='api_students'),
-    path('api/classrooms/', api_views.ClassRoomListAPI.as_view(), name='api_classrooms'),
-    path('api/academic-years/', api_views.AcademicYearListAPI.as_view(), name='api_academic_years'),
-    path('api/grade-rules/', api_views.GradeRuleListAPI.as_view(), name='api_grade_rules'),
-    path('api/summary/', api_views.StudentSummaryAPI.as_view(), name='api_summary'),
-    path('api/dashboard/', api_views.DashboardStatsAPI.as_view(), name='api_dashboard'),
+    path('api/marks/flat/', api_views.FlatMarksAPIView.as_view(), name='api_marks_flat'),
+    path('api/marks/students/', api_views.StudentSummaryAPIView.as_view(), name='api_students_summary'),
+    path('api/marks/subjects/', api_views.SubjectAnalysisAPIView.as_view(), name='api_subjects_analysis'),
 ]

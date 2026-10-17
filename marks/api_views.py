@@ -1,159 +1,227 @@
+"""
+REST API Views for Power BI Web Connector.
+
+Three endpoints expose the school marks data in flat, query-friendly formats:
+
+  GET /api/marks/flat/          → All individual mark records (fact table)
+  GET /api/marks/students/      → Consolidated totals per student
+  GET /api/marks/subjects/      → Grade distribution per subject
+
+All endpoints support query-string filters:
+  ?class_id=1
+  ?academic_year=2022-23
+  ?class_name=Std+III
+  ?division=A
+"""
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum, Count, Q
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from django.db.models import Prefetch
 
-from .models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule
-from .serializers import (
-    AcademicYearSerializer, ClassRoomSerializer, StudentSerializer,
-    SubjectSerializer, MarkSerializer, GradeRuleSerializer,
-    StudentSummarySerializer
+from marks.models import ClassRoom, Student, Subject, Mark, GradeRule
+from marks.serializers import FlatMarkSerializer, StudentSummarySerializer, SubjectAnalysisSerializer
+from marks.services.calculations import (
+    calculate_student_consolidated,
+    calculate_subject_analysis,
 )
 
 
-class AcademicYearListAPI(APIView):
-    """GET /api/academic-years/ — List all academic years."""
-    permission_classes = [IsAuthenticated]
+def get_filtered_classrooms(request):
+    """Helper: filter ClassRooms from query-string params."""
+    qs = ClassRoom.objects.select_related('academic_year').all()
 
-    def get(self, request):
-        qs = AcademicYear.objects.all()
-        return Response(AcademicYearSerializer(qs, many=True).data)
+    if class_id := request.GET.get('class_id'):
+        qs = qs.filter(pk=class_id)
+    if year := request.GET.get('academic_year'):
+        qs = qs.filter(academic_year__name=year)
+    if cn := request.GET.get('class_name'):
+        qs = qs.filter(class_name__iexact=cn)
+    if div := request.GET.get('division'):
+        qs = qs.filter(division__iexact=div)
 
-
-class ClassRoomListAPI(APIView):
-    """GET /api/classrooms/?year_id=1 — List all classrooms, optionally filtered by year."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        qs = ClassRoom.objects.select_related('academic_year').all()
-        year_id = request.query_params.get('year_id')
-        if year_id:
-            qs = qs.filter(academic_year_id=year_id)
-        return Response(ClassRoomSerializer(qs, many=True).data)
+    return qs
 
 
-class StudentListAPI(APIView):
-    """GET /api/students/?classroom_id=1 — List all students, optionally filtered by classroom."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        qs = Student.objects.select_related('classroom__academic_year').all()
-        classroom_id = request.query_params.get('classroom_id')
-        if classroom_id:
-            qs = qs.filter(classroom_id=classroom_id)
-        return Response(StudentSerializer(qs, many=True).data)
-
-
-class MarksListAPI(APIView):
+class FlatMarksAPIView(APIView):
     """
-    GET /api/marks/ — Full marks data, ideal for Power BI import.
-    Supports query params: classroom_id, academic_year_id, subject_id
+    GET /api/marks/flat/
+    ─────────────────────────────────────────────────────────────────────
+    Returns every Mark record as one flat row containing:
+    academic_year, class_name, division, student info, subject info,
+    marks_obtained, is_absent, calculated percentage & grade.
+
+    This is the PRIMARY TABLE for Power BI.
+    Power BI can pivot, slice, and aggregate from this single endpoint.
     """
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = Mark.objects.select_related(
+        grade_rules = list(GradeRule.objects.all())
+
+        classrooms = get_filtered_classrooms(request)
+
+        marks_qs = Mark.objects.filter(
+            student__classroom__in=classrooms
+        ).select_related(
+            'student',
+            'student__classroom',
             'student__classroom__academic_year',
-            'subject__classroom'
-        ).all()
+            'subject',
+        ).order_by(
+            'student__classroom__academic_year__name',
+            'student__classroom__class_name',
+            'student__classroom__division',
+            'student__roll_number',
+            'subject__order',
+        )
 
-        classroom_id = request.query_params.get('classroom_id')
-        year_id = request.query_params.get('academic_year_id')
-        subject_id = request.query_params.get('subject_id')
-
-        if classroom_id:
-            qs = qs.filter(student__classroom_id=classroom_id)
-        if year_id:
-            qs = qs.filter(student__classroom__academic_year_id=year_id)
-        if subject_id:
-            qs = qs.filter(subject_id=subject_id)
-
-        return Response(MarkSerializer(qs, many=True).data)
-
-
-class StudentSummaryAPI(APIView):
-    """
-    GET /api/summary/ — Per-student aggregated summary.
-    Best for Power BI 'Student Performance' table visual.
-    Supports query params: classroom_id, academic_year_id
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        students = Student.objects.select_related('classroom__academic_year').all()
-
-        classroom_id = request.query_params.get('classroom_id')
-        year_id = request.query_params.get('academic_year_id')
-
-        if classroom_id:
-            students = students.filter(classroom_id=classroom_id)
-        if year_id:
-            students = students.filter(classroom__academic_year_id=year_id)
-
-        results = []
-        for student in students:
-            marks = Mark.objects.filter(student=student)
-            subjects = Subject.objects.filter(classroom=student.classroom)
-
-            total_out_of = sum(
-                m.subject.out_of_marks
-                for m in marks
-                if not m.is_absent and m.marks_obtained is not None
-            )
-            total_obtained = sum(
-                m.marks_obtained
-                for m in marks
-                if not m.is_absent and m.marks_obtained is not None
-            )
-            subjects_appeared = marks.filter(is_absent=False).count()
-            subjects_absent = marks.filter(is_absent=True).count()
-            percentage = round((total_obtained / total_out_of * 100), 2) if total_out_of > 0 else 0.0
-
-            results.append({
-                'student_id': student.id,
-                'roll_number': student.roll_number,
-                'student_name': student.name,
-                'classroom': str(student.classroom),
-                'academic_year': student.classroom.academic_year.name,
-                'total_obtained': total_obtained,
-                'total_out_of': total_out_of,
-                'percentage': percentage,
-                'subjects_appeared': subjects_appeared,
-                'subjects_absent': subjects_absent,
-            })
-
-        return Response(results)
-
-
-class GradeRuleListAPI(APIView):
-    """GET /api/grade-rules/ — Grade configuration for Power BI calculated columns."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        qs = GradeRule.objects.all()
-        return Response(GradeRuleSerializer(qs, many=True).data)
-
-
-class DashboardStatsAPI(APIView):
-    """
-    GET /api/dashboard/ — Quick overview stats for Power BI card visuals.
-    Returns totals across the entire database.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        total_students = Student.objects.count()
-        total_classrooms = ClassRoom.objects.count()
-        total_marks_entered = Mark.objects.filter(
-            is_absent=False, marks_obtained__isnull=False
-        ).count()
-        total_absent = Mark.objects.filter(is_absent=True).count()
-        academic_years = AcademicYear.objects.count()
-
+        serializer = FlatMarkSerializer(
+            marks_qs,
+            many=True,
+            context={'grade_rules': grade_rules}
+        )
         return Response({
-            'total_students': total_students,
-            'total_classrooms': total_classrooms,
-            'total_marks_entered': total_marks_entered,
-            'total_absent_records': total_absent,
-            'academic_years': academic_years,
+            'count': len(serializer.data),
+            'description': 'Flat mark records – one row per student × subject. Use this as your Power BI fact table.',
+            'filters_applied': {k: v for k, v in request.GET.items()},
+            'results': serializer.data,
+        })
+
+
+class StudentSummaryAPIView(APIView):
+    """
+    GET /api/marks/students/
+    ─────────────────────────────────────────────────────────────────────
+    Returns consolidated totals per student across ALL subjects:
+    total marks, total%, overall grade, pass/fail status.
+
+    Use this for Power BI KPI cards, toppers lists, and student drill-through.
+    """
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        grade_rules = list(GradeRule.objects.all())
+        classrooms  = get_filtered_classrooms(request)
+        results = []
+
+        for classroom in classrooms:
+            students = Student.objects.filter(classroom=classroom).order_by('roll_number')
+            subjects = list(Subject.objects.filter(classroom=classroom).order_by('order', 'name'))
+
+            # Build marks map for this classroom
+            marks_map = {}
+            for m in Mark.objects.filter(student__classroom=classroom).select_related('student', 'subject'):
+                marks_map.setdefault(m.student_id, {})[m.subject_id] = m
+
+            for stud in students:
+                subject_marks = [
+                    {
+                        'subject_name': sub.name,
+                        'marks_obtained': marks_map.get(stud.id, {}).get(sub.id, Mark()).marks_obtained,
+                        'out_of_marks': sub.out_of_marks,
+                        'is_absent': marks_map.get(stud.id, {}).get(sub.id, Mark()).is_absent,
+                    }
+                    for sub in subjects
+                ]
+
+                con = calculate_student_consolidated(
+                    stud.name, stud.roll_number, subject_marks,
+                    classroom.pass_percentage, grade_rules
+                )
+
+                results.append({
+                    'academic_year':      classroom.academic_year.name,
+                    'class_name':         classroom.class_name,
+                    'division':           classroom.division,
+                    'roll_number':        stud.roll_number,
+                    'student_name':       stud.name,
+                    'total_obtained':     con.get('total_obtained', 0.0),
+                    'total_out_of':       con.get('total_out_of', 0.0),
+                    'overall_percentage': con.get('overall_percentage', 0.0),
+                    'overall_grade':      con.get('overall_grade', 'AB'),
+                    'is_pass':            con.get('is_pass', False),
+                    'present_count':      con.get('present_count', 0),
+                    'absent_count':       con.get('absent_count', 0),
+                })
+
+        serializer = StudentSummarySerializer(results, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'description': 'Consolidated student summary – one row per student. Use for KPI cards and drill-through.',
+            'filters_applied': {k: v for k, v in request.GET.items()},
+            'results': serializer.data,
+        })
+
+
+class SubjectAnalysisAPIView(APIView):
+    """
+    GET /api/marks/subjects/
+    ─────────────────────────────────────────────────────────────────────
+    Returns subject-level analysis:
+    grade distribution counts (A,B,C,D,E,AB), average %, pass %.
+
+    Use this for Power BI subject comparison bar charts and heatmaps.
+    """
+    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        grade_rules = list(GradeRule.objects.all())
+        classrooms  = get_filtered_classrooms(request)
+        results = []
+
+        for classroom in classrooms:
+            subjects  = Subject.objects.filter(classroom=classroom).order_by('order', 'name')
+            students  = list(Student.objects.filter(classroom=classroom))
+            marks_map = {}
+            for m in Mark.objects.filter(student__classroom=classroom).select_related('student', 'subject'):
+                marks_map.setdefault(m.student_id, {})[m.subject_id] = m
+
+            for sub in subjects:
+                sub_records = [
+                    {
+                        'marks_obtained': marks_map.get(stud.id, {}).get(sub.id, Mark()).marks_obtained,
+                        'is_absent':      marks_map.get(stud.id, {}).get(sub.id, Mark()).is_absent,
+                    }
+                    for stud in students
+                ]
+
+                analysis = calculate_subject_analysis(
+                    sub.name, sub.out_of_marks, sub_records,
+                    classroom.pass_percentage, grade_rules
+                )
+                gc = analysis['grade_counts']
+
+                results.append({
+                    'academic_year':          classroom.academic_year.name,
+                    'class_name':             classroom.class_name,
+                    'division':               classroom.division,
+                    'subject_name':           sub.name,
+                    'out_of_marks':           sub.out_of_marks,
+                    'total_students':         analysis['total_students'],
+                    'present_count':          analysis['present_count'],
+                    'absent_count':           analysis['absent_count'],
+                    'pass_count':             analysis['pass_count'],
+                    'fail_count':             analysis['fail_count'],
+                    'subject_avg_marks':      analysis['subject_avg_marks'],
+                    'subject_avg_percentage': analysis['subject_avg_percentage'],
+                    'subject_pass_percent':   analysis['subject_pass_percent'],
+                    'grade_A':                gc.get('A', 0),
+                    'grade_B':                gc.get('B', 0),
+                    'grade_C':                gc.get('C', 0),
+                    'grade_D':                gc.get('D', 0),
+                    'grade_E':                gc.get('E', 0),
+                    'grade_AB':               gc.get('AB', 0),
+                })
+
+        serializer = SubjectAnalysisSerializer(results, many=True)
+        return Response({
+            'count': len(serializer.data),
+            'description': 'Subject analysis – one row per subject per class. Use for grade distribution charts.',
+            'filters_applied': {k: v for k, v in request.GET.items()},
+            'results': serializer.data,
         })

@@ -195,11 +195,11 @@ class Command(BaseCommand):
                             total_marks += 1
 
                     self.stdout.write(
-                        f'    ✓ {classroom} → 30 students, {len(subject_objs)} subjects'
+                        f'    [OK] {classroom} - 30 students, {len(subject_objs)} subjects'
                     )
 
         self.stdout.write(self.style.SUCCESS(
-            f'\n✅ Seed complete! Created {total_students} students '
+            f'\n[DONE] Seed complete! Created {total_students} students '
             f'with {total_marks} mark records across {len(years_to_seed)} academic year(s).'
         ))
         self.stdout.write(self.style.SUCCESS(
@@ -218,4 +218,4 @@ class Command(BaseCommand):
                     'description': rule['description'],
                 }
             )
-        self.stdout.write(f'  ✓ Grade rules ready ({len(GRADE_RULES)} rules)')
+        self.stdout.write(f'  [OK] Grade rules ready ({len(GRADE_RULES)} rules)')

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>School Marks Dashboard — Project Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+    :root {
+      --bg:#0f1117;--bg2:#181c27;--bg3:#1e2330;--border:#2a3042;
+      --accent:#6c63ff;--accent2:#00d4aa;--accent3:#ff6b6b;--accent4:#ffd93d;
+      --text:#e8eaf0;--muted:#7a82a0;--api:#f093fb;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;}
+    header{background:linear-gradient(135deg,#1a1040 0%,#0f1117 50%,#0d1f2d 100%);border-bottom:1px solid var(--border);padding:48px 40px 36px;position:relative;overflow:hidden;}
+    header::before{content:'';position:absolute;top:-80px;right:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%);pointer-events:none;}
+    .header-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);border-radius:100px;padding:6px 16px;font-size:12px;font-weight:600;color:#a89fff;letter-spacing:.5px;margin-bottom:20px;}
+    header h1{font-size:36px;font-weight:800;background:linear-gradient(135deg,#fff 0%,#a89fff 50%,#00d4aa 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:12px;}
+    header p{color:var(--muted);font-size:16px;max-width:600px;}
+    .header-stats{display:flex;gap:32px;margin-top:28px;flex-wrap:wrap;}
+    .stat-pill .num{font-size:24px;font-weight:700;color:var(--accent2);}
+    .stat-pill .lbl{font-size:12px;color:var(--muted);}
+    .container{max-width:1100px;margin:0 auto;padding:40px;}
+    .section-title{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+    .section-title .icon{width:36px;height:36px;display:grid;place-items:center;border-radius:8px;font-size:18px;}
+    .section-title h2{font-size:20px;font-weight:700;}
+    .section-title span.sub{font-size:13px;color:var(--muted);font-weight:400;margin-left:4px;}
+    .creds-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:40px;}
+    .cred-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s;}
+    .cred-card:hover{transform:translateY(-2px);border-color:var(--accent);}
+    .cred-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-accent,var(--accent));}
+    .cred-card .label{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+    .cred-card .value{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:var(--text);}
+    .cred-card .desc{font-size:12px;color:var(--muted);margin-top:4px;}
+    .routes-list{display:flex;flex-direction:column;gap:14px;margin-bottom:40px;}
+    .route-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px 24px;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;transition:border-color .2s,transform .2s,box-shadow .2s;position:relative;overflow:hidden;}
+    .route-card:hover{border-color:var(--card-border,var(--accent));transform:translateX(4px);box-shadow:-4px 0 0 var(--card-border,var(--accent)),0 4px 20px rgba(0,0,0,.3);}
+    .url-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+    .method-badge{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;background:rgba(108,99,255,.2);color:#a89fff;border:1px solid rgba(108,99,255,.3);flex-shrink:0;}
+    .url{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--accent2);word-break:break-all;}
+    .route-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+    .route-desc{font-size:13px;color:var(--muted);line-height:1.5;}
+    .features{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;}
+    .feature-tag{font-size:11px;padding:3px 10px;border-radius:100px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);}
+    .open-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.35);color:#a89fff;font-size:12px;font-weight:600;padding:7px 16px;border-radius:8px;text-decoration:none;transition:background .2s,transform .15s;white-space:nowrap;flex-shrink:0;}
+    .open-btn:hover{background:rgba(108,99,255,.25);transform:scale(1.05);}
+    .open-btn.api{background:rgba(240,147,251,.1);border-color:rgba(240,147,251,.3);color:#f093fb;}
+    .open-btn.api:hover{background:rgba(240,147,251,.2);}
+    .open-btn.green{background:rgba(0,212,170,.1);border-color:rgba(0,212,170,.3);color:var(--accent2);}
+    .open-btn.red{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.3);color:#ff6b6b;}
+    .open-btn.yellow{background:rgba(255,217,61,.1);border-color:rgba(255,217,61,.3);color:#ffd93d;}
+    .db-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:40px;}
+    .db-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px 20px;transition:border-color .2s,transform .2s;}
+    .db-card:hover{border-color:var(--accent2);transform:translateY(-2px);}
+    .db-card .table-name{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--accent2);margin-bottom:6px;}
+    .db-card .table-desc{font-size:12px;color:var(--muted);margin-bottom:10px;}
+    .db-card .row-count{font-size:22px;font-weight:700;}
+    .db-card .row-lbl{font-size:11px;color:var(--muted);}
+    .steps{display:flex;flex-direction:column;gap:0;margin-bottom:40px;}
+    .step{display:grid;grid-template-columns:52px 1fr;gap:16px;position:relative;}
+    .step:not(:last-child)::after{content:'';position:absolute;left:25px;top:52px;width:2px;height:calc(100% - 20px);background:var(--border);}
+    .step-num{width:52px;height:52px;border-radius:50%;background:var(--bg3);border:2px solid var(--accent);display:grid;place-items:center;font-size:18px;font-weight:700;color:var(--accent);flex-shrink:0;z-index:1;}
+    .step-body{padding:14px 0 28px;}
+    .step-body h3{font-size:15px;font-weight:700;margin-bottom:6px;}
+    .step-body p{font-size:13px;color:var(--muted);line-height:1.6;}
+    .code-block{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent2);white-space:pre-wrap;word-break:break-word;}
+    table.params{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;margin-bottom:14px;}
+    table.params th{background:var(--bg3);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 14px;text-align:left;border-bottom:1px solid var(--border);}
+    table.params td{padding:9px 14px;border-bottom:1px solid var(--border);}
+    table.params tr:last-child td{border-bottom:none;}
+    table.params td code{font-family:'JetBrains Mono',monospace;color:var(--accent2);font-size:12px;}
+    .alert{border-radius:10px;padding:14px 18px;margin-bottom:16px;font-size:13px;display:flex;gap:10px;align-items:flex-start;border:1px solid;}
+    .alert.info{background:rgba(108,99,255,.1);border-color:rgba(108,99,255,.3);color:#c3beff;}
+    .alert.tip{background:rgba(0,212,170,.08);border-color:rgba(0,212,170,.25);color:#7ee8d0;}
+    .alert.warn{background:rgba(255,217,61,.08);border-color:rgba(255,217,61,.25);color:#ffe080;}
+    .alert .alert-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+    .spacer{height:40px;}
+    footer{text-align:center;padding:28px;color:var(--muted);font-size:13px;border-top:1px solid var(--border);margin-top:40px;}
+    a{color:inherit;}
+  </style>
+</head>
+<body>
+<header>
+  <div class="header-badge">&#x1F4DA; School Marks Dashboard &mdash; Project Guide</div>
+  <h1>Your Project, Explained End-to-End</h1>
+  <p>Complete guide to every page, URL, API endpoint, and database table in your Django + PostgreSQL project.</p>
+  <div class="header-stats">
+    <div class="stat-pill"><div class="num">720</div><div class="lbl">Students in DB</div></div>
+    <div class="stat-pill"><div class="num">5,760</div><div class="lbl">Mark Records</div></div>
+    <div class="stat-pill"><div class="num">3</div><div class="lbl">Academic Years</div></div>
+    <div class="stat-pill"><div class="num">24</div><div class="lbl">Classrooms</div></div>
+    <div class="stat-pill"><div class="num">3</div><div class="lbl">REST API Endpoints</div></div>
+  </div>
+</header>
+
+<div class="container">
+<div class="spacer"></div>
+
+<!-- CREDENTIALS -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(108,99,255,.15)">&#x1F511;</div>
+  <h2>Login Credentials <span class="sub">&mdash; keep these handy</span></h2>
+</div>
+<div class="creds-grid">
+  <div class="cred-card" style="--card-accent:#6c63ff"><div class="label">App URL</div><div class="value">http://127.0.0.1:8000</div><div class="desc">Run: python manage.py runserver</div></div>
+  <div class="cred-card" style="--card-accent:#00d4aa"><div class="label">Admin Username</div><div class="value">admin</div><div class="desc">Django superuser login</div></div>
+  <div class="cred-card" style="--card-accent:#ffd93d"><div class="label">Admin Password</div><div class="value">admin123</div><div class="desc">Django admin panel</div></div>
+  <div class="cred-card" style="--card-accent:#f093fb"><div class="label">PostgreSQL DB</div><div class="value">school_marks_db</div><div class="desc">Server: student_analysis (localhost:5432)</div></div>
+  <div class="cred-card" style="--card-accent:#ff6b6b"><div class="label">DB Username</div><div class="value">school_marks_user</div><div class="desc">PostgreSQL dedicated user</div></div>
+  <div class="cred-card" style="--card-accent:#ff6b6b"><div class="label">DB Password</div><div class="value">Om@1311</div><div class="desc">Use for Power BI connection</div></div>
+</div>
+
+<!-- WEB PAGES -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(0,212,170,.15)">&#x1F310;</div>
+  <h2>Web Pages <span class="sub">&mdash; open in browser after running the server</span></h2>
+</div>
+<div class="routes-list">
+
+  <div class="route-card" style="--card-border:#6c63ff">
+    <div>
+      <div class="url-row"><span class="method-badge">GET</span><span class="url">http://127.0.0.1:8000/login/</span></div>
+      <div class="route-title">&#x1F510; Login Page</div>
+      <div class="route-desc">The entry point. All pages redirect here if you are not logged in. Use admin / admin123.</div>
+      <div class="features"><span class="feature-tag">Username: admin</span><span class="feature-tag">Password: admin123</span><span class="feature-tag">Required for all pages</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/login/" target="_blank" class="open-btn">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#00d4aa">
+    <div>
+      <div class="url-row"><span class="method-badge">GET</span><span class="url">http://127.0.0.1:8000/</span></div>
+      <div class="route-title">&#x1F4CA; Main Analytics Dashboard</div>
+      <div class="route-desc">The home page. Shows summary cards (Total Students, Class Average %, Pass Rate), interactive Chart.js charts (Grade Distribution per Subject, Pass vs Fail Donut, Average Marks Bar Chart), a Toppers List, and a Needs Attention list. Use the dropdown to switch between classes and years.</div>
+      <div class="features"><span class="feature-tag">Chart.js visualizations</span><span class="feature-tag">Class filter dropdown</span><span class="feature-tag">Toppers list</span><span class="feature-tag">Pass/Fail donut</span><span class="feature-tag">Subject avg bar chart</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/" target="_blank" class="open-btn green">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#6c63ff">
+    <div>
+      <div class="url-row"><span class="method-badge">GET / POST</span><span class="url">http://127.0.0.1:8000/classes/</span></div>
+      <div class="route-title">&#x1F3EB; Class Management</div>
+      <div class="route-desc">Lists all 24 classrooms across 3 academic years. Create a new class by selecting Academic Year, Class Name, Division, Class Teacher, and Pass %. Each class card links to its detailed analysis page.</div>
+      <div class="features"><span class="feature-tag">24 classrooms listed</span><span class="feature-tag">Create new class</span><span class="feature-tag">Links to detail view</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/classes/" target="_blank" class="open-btn">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#ffd93d">
+    <div>
+      <div class="url-row"><span class="method-badge">GET</span><span class="url">http://127.0.0.1:8000/classes/<strong style="color:#ffd93d">{class_id}</strong>/</span></div>
+      <div class="route-title">&#x1F4CB; Class Detail &mdash; Full Result Sheet</div>
+      <div class="route-desc">The most important page. Shows the full consolidated mark sheet: every student's marks across all subjects, total marks, overall percentage, grade, and pass/fail. Also shows per-subject analysis tables with grade distributions. Replace {class_id} with 1, 2, 3... Try classes/1/ to start.</div>
+      <div class="features"><span class="feature-tag">Full mark sheet table</span><span class="feature-tag">Per-subject analysis</span><span class="feature-tag">Grade distribution</span><span class="feature-tag">Add student</span><span class="feature-tag">Add subject</span><span class="feature-tag">Export to Excel</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/classes/1/" target="_blank" class="open-btn yellow">Open Class 1 &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#f093fb">
+    <div>
+      <div class="url-row"><span class="method-badge">GET / POST</span><span class="url">http://127.0.0.1:8000/classes/<strong style="color:#f093fb">{class_id}</strong>/marks/</span></div>
+      <div class="route-title">&#x270F;&#xFE0F; Marks Entry Interface</div>
+      <div class="route-desc">Enter or update marks for students in a class. Select a subject from the tab bar, type marks for each student or tick the Absent checkbox. Real-time grade preview updates as you type. Validates that marks do not exceed the subject maximum.</div>
+      <div class="features"><span class="feature-tag">Subject selector tabs</span><span class="feature-tag">Absent checkbox</span><span class="feature-tag">Live grade preview</span><span class="feature-tag">Validation</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/classes/1/marks/" target="_blank" class="open-btn api">Open Class 1 &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#00d4aa">
+    <div>
+      <div class="url-row"><span class="method-badge">GET</span><span class="url">http://127.0.0.1:8000/classes/<strong style="color:#00d4aa">{class_id}</strong>/export/</span></div>
+      <div class="route-title">&#x1F4E5; Export to Excel (.xlsx)</div>
+      <div class="route-desc">Instantly downloads a formatted Excel workbook for a class. Contains student-wise marks, totals, percentages, grades, and pass/fail. Visiting this URL directly triggers the file download &mdash; no buttons needed.</div>
+      <div class="features"><span class="feature-tag">One-click download</span><span class="feature-tag">Formatted .xlsx file</span><span class="feature-tag">All subjects in one sheet</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/classes/1/export/" target="_blank" class="open-btn green">Download Class 1 &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#6c63ff">
+    <div>
+      <div class="url-row"><span class="method-badge">GET / POST</span><span class="url">http://127.0.0.1:8000/upload/</span></div>
+      <div class="route-title">&#x1F4E4; Import Marks from Excel</div>
+      <div class="route-desc">Upload an Excel file (.xlsx) to bulk-import marks for an entire class. Select the target class, choose the Excel file, and submit. The system validates data and shows errors if any row has issues.</div>
+      <div class="features"><span class="feature-tag">Bulk import</span><span class="feature-tag">Validation feedback</span><span class="feature-tag">.xlsx format</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/upload/" target="_blank" class="open-btn">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#ffd93d">
+    <div>
+      <div class="url-row"><span class="method-badge">GET / POST</span><span class="url">http://127.0.0.1:8000/settings/grade-rules/</span></div>
+      <div class="route-title">&#x2699;&#xFE0F; Grade Rules Settings</div>
+      <div class="route-desc">Configure grade boundary percentages. Default: A=90-100% (Excellent), B=80-90% (Very Good), C=60-80% (Good), D=33-60% (Pass), E=0-33% (Fail). Changes instantly affect all grade calculations across the entire app.</div>
+      <div class="features"><span class="feature-tag">A/B/C/D/E grades</span><span class="feature-tag">Editable boundaries</span><span class="feature-tag">Instant effect on all data</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/settings/grade-rules/" target="_blank" class="open-btn yellow">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#ff6b6b">
+    <div>
+      <div class="url-row"><span class="method-badge">GET</span><span class="url">http://127.0.0.1:8000/admin/</span></div>
+      <div class="route-title">&#x1F527; Django Admin Panel</div>
+      <div class="route-desc">Built-in Django admin. Directly view, edit, add, or delete any record in the database &mdash; Academic Years, Classrooms, Students, Subjects, Marks, Grade Rules, and Users. Useful for quick corrections or bulk deletes. Login: admin / admin123.</div>
+      <div class="features"><span class="feature-tag">Full CRUD on all models</span><span class="feature-tag">User management</span><span class="feature-tag">Bulk delete</span><span class="feature-tag">Search and filter</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/admin/" target="_blank" class="open-btn red">Open &#x2197;</a>
+  </div>
+
+</div>
+
+<!-- REST API -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(240,147,251,.15)">&#x26A1;</div>
+  <h2>REST API Endpoints <span class="sub">&mdash; for Power BI Web Connector and external tools</span></h2>
+</div>
+<div class="alert info"><span class="alert-icon">&#x2139;&#xFE0F;</span><div>You must be <strong>logged in</strong> in the browser to access the API. Log in at <code>http://127.0.0.1:8000/login/</code> first, then open these URLs.</div></div>
+<div class="alert tip"><span class="alert-icon">&#x1F4A1;</span><div>All endpoints support filter params: <code>?class_id=1</code> &nbsp;&bull;&nbsp; <code>?academic_year=2024-25</code> &nbsp;&bull;&nbsp; <code>?class_name=Std+III&amp;division=A</code></div></div>
+<div class="routes-list">
+
+  <div class="route-card" style="--card-border:#f093fb">
+    <div>
+      <div class="url-row"><span class="method-badge" style="background:rgba(240,147,251,.15);color:#f093fb;border-color:rgba(240,147,251,.3)">API GET</span><span class="url" style="color:#f093fb">http://127.0.0.1:8000/api/marks/flat/</span></div>
+      <div class="route-title">&#x1F4CA; Flat Marks &mdash; Primary Power BI Fact Table</div>
+      <div class="route-desc">The <strong>primary endpoint for Power BI</strong>. Returns every mark as one flat row containing academic year, class name, division, student name, roll number, subject name, marks obtained, absent status, percentage, and grade. This is your fact table &mdash; connect all other tables to this one.</div>
+      <div class="features"><span class="feature-tag">One row per student x subject</span><span class="feature-tag">Grade and % calculated</span><span class="feature-tag">~5,760 rows total</span><span class="feature-tag">Best for Power BI</span></div>
+      <table class="params">
+        <tr><th>Filter Param</th><th>Example</th><th>Effect</th></tr>
+        <tr><td><code>?class_id=</code></td><td><code>?class_id=1</code></td><td>Only marks for classroom ID 1</td></tr>
+        <tr><td><code>?academic_year=</code></td><td><code>?academic_year=2024-25</code></td><td>Filter by year name</td></tr>
+        <tr><td><code>?class_name=</code></td><td><code>?class_name=Std+III</code></td><td>Filter by class name</td></tr>
+        <tr><td><code>?division=</code></td><td><code>?division=A</code></td><td>Filter by division</td></tr>
+      </table>
+    </div>
+    <a href="http://127.0.0.1:8000/api/marks/flat/" target="_blank" class="open-btn api">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#f093fb">
+    <div>
+      <div class="url-row"><span class="method-badge" style="background:rgba(240,147,251,.15);color:#f093fb;border-color:rgba(240,147,251,.3)">API GET</span><span class="url" style="color:#f093fb">http://127.0.0.1:8000/api/marks/students/</span></div>
+      <div class="route-title">&#x1F464; Student Summary &mdash; One Row Per Student</div>
+      <div class="route-desc">Returns consolidated results per student: total marks obtained, total out-of, overall percentage, overall grade (A-E), pass/fail status, present count, absent count. Use in Power BI for KPI cards, toppers tables, and student drill-through reports.</div>
+      <div class="features"><span class="feature-tag">One row per student</span><span class="feature-tag">Overall % and grade</span><span class="feature-tag">Pass/Fail flag</span><span class="feature-tag">Absent count</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/api/marks/students/" target="_blank" class="open-btn api">Open &#x2197;</a>
+  </div>
+
+  <div class="route-card" style="--card-border:#f093fb">
+    <div>
+      <div class="url-row"><span class="method-badge" style="background:rgba(240,147,251,.15);color:#f093fb;border-color:rgba(240,147,251,.3)">API GET</span><span class="url" style="color:#f093fb">http://127.0.0.1:8000/api/marks/subjects/</span></div>
+      <div class="route-title">&#x1F4DA; Subject Analysis &mdash; One Row Per Subject</div>
+      <div class="route-desc">Returns subject-level statistics per class: average marks, average percentage, pass percentage, and grade counts (A, B, C, D, E, AB). Use in Power BI for subject comparison bar charts, grade distribution heatmaps, and identifying weak subjects.</div>
+      <div class="features"><span class="feature-tag">Grade A/B/C/D/E counts</span><span class="feature-tag">Subject avg %</span><span class="feature-tag">Pass rate per subject</span><span class="feature-tag">Absent count</span></div>
+    </div>
+    <a href="http://127.0.0.1:8000/api/marks/subjects/" target="_blank" class="open-btn api">Open &#x2197;</a>
+  </div>
+
+</div>
+
+<!-- DATABASE -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(0,212,170,.15)">&#x1F5C4;&#xFE0F;</div>
+  <h2>PostgreSQL Tables <span class="sub">&mdash; school_marks_db on student_analysis server</span></h2>
+</div>
+<div class="alert tip"><span class="alert-icon">&#x1F4A1;</span><div>Power BI direct connection: <strong>Server</strong> = <code>localhost</code> &nbsp;|&nbsp; <strong>Database</strong> = <code>school_marks_db</code> &nbsp;|&nbsp; <strong>User</strong> = <code>school_marks_user</code> &nbsp;|&nbsp; <strong>Password</strong> = <code>Om@1311</code></div></div>
+<div class="db-grid">
+  <div class="db-card"><div class="table-name">marks_mark</div><div class="table-desc">Core fact table. Every student x subject mark record. This is what you query most in Power BI.</div><div class="row-count">5,760</div><div class="row-lbl">rows</div></div>
+  <div class="db-card"><div class="table-name">marks_student</div><div class="table-desc">Student roster with roll number, name, and classroom foreign key.</div><div class="row-count">720</div><div class="row-lbl">rows</div></div>
+  <div class="db-card"><div class="table-name">marks_classroom</div><div class="table-desc">All classrooms (Std III A, Std IV B, etc.) with teacher name and pass percentage.</div><div class="row-count">24</div><div class="row-lbl">rows</div></div>
+  <div class="db-card"><div class="table-name">marks_academicyear</div><div class="table-desc">Academic years: 2022-23, 2023-24, 2024-25. Use for year slicers in Power BI.</div><div class="row-count">3</div><div class="row-lbl">rows</div></div>
+  <div class="db-card"><div class="table-name">marks_subject</div><div class="table-desc">Subject list per classroom: English, Maths, Science, EVS, Hindi, Marathi, Computer, Drawing.</div><div class="row-count">192</div><div class="row-lbl">rows</div></div>
+  <div class="db-card"><div class="table-name">marks_graderule</div><div class="table-desc">Grade thresholds: A&ge;90%, B&ge;80%, C&ge;60%, D&ge;33%, E&lt;33%. Configurable in Settings.</div><div class="row-count">5</div><div class="row-lbl">rows</div></div>
+</div>
+
+<!-- POWER BI -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(255,217,61,.15)">&#x1F4C8;</div>
+  <h2>Connect Power BI <span class="sub">&mdash; follow these steps when ready</span></h2>
+</div>
+<div class="steps">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Install PostgreSQL ODBC Driver</h3>
+      <p>Download <strong>Npgsql</strong> from <a href="https://github.com/npgsql/npgsql/releases" style="color:var(--accent2)">github.com/npgsql/npgsql/releases</a>. Get the .msi file and install it. Then restart Power BI Desktop.</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Get Data &rarr; PostgreSQL database</h3>
+      <p>Open Power BI Desktop &rarr; click <strong>Get Data</strong> &rarr; search <strong>PostgreSQL database</strong> &rarr; Connect.</p>
+      <div class="code-block">Server:   localhost
+Database: school_marks_db
+Mode:     Import  (or DirectQuery for live data)</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Enter Credentials</h3>
+      <div class="code-block">Username: school_marks_user
+Password: Om@1311</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h3>Select Tables in Navigator</h3>
+      <div class="code-block">marks_mark          (fact table - load this first)
+marks_student       (student dimension)
+marks_classroom     (class dimension)
+marks_academicyear  (year dimension - for slicers)
+marks_subject       (subject dimension)
+marks_graderule     (grade thresholds)</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h3>Set Relationships in Model View</h3>
+      <div class="code-block">marks_mark.student_id            --&gt;  marks_student.id
+marks_mark.subject_id            --&gt;  marks_subject.id
+marks_student.classroom_id       --&gt;  marks_classroom.id
+marks_classroom.academic_year_id --&gt;  marks_academicyear.id</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">
+      <h3>Build Your Dashboards</h3>
+      <div class="code-block">Bar Chart  : Subject name  vs  AVG(marks_obtained)
+Pie Chart  : Grade distribution (A/B/C/D/E counts)
+Table      : Student name + total % + grade + pass/fail
+Card       : Class pass rate %
+Slicer     : academic_year[name] and classroom[class_name]
+Line Chart : Subject avg trend across 3 years</div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMANDS -->
+<div class="section-title">
+  <div class="icon" style="background:rgba(108,99,255,.15)">&#x1F4BB;</div>
+  <h2>Quick Commands <span class="sub">&mdash; run from the project folder in terminal</span></h2>
+</div>
+<div class="alert warn"><span class="alert-icon">&#x26A0;&#xFE0F;</span><div>Always open terminal and go to folder: <code>cd "c:\Users\LENOVO\Documents\data analytics\Main Project"</code></div></div>
+<table class="params">
+  <tr><th>What you want to do</th><th>Command to run</th></tr>
+  <tr><td>Start the web server</td><td><code>python manage.py runserver</code></td></tr>
+  <tr><td>Re-seed all data (clears and refills)</td><td><code>python manage.py seed_data --clear</code></td></tr>
+  <tr><td>Seed only a specific year</td><td><code>python manage.py seed_data --years 2024-25</code></td></tr>
+  <tr><td>Apply new database migrations</td><td><code>python manage.py migrate</code></td></tr>
+  <tr><td>Create another admin user</td><td><code>python manage.py createsuperuser</code></td></tr>
+  <tr><td>Open Django shell (Python)</td><td><code>python manage.py shell</code></td></tr>
+  <tr><td>Check for code errors</td><td><code>python manage.py check</code></td></tr>
+</table>
+
+</div>
+
+<footer>
+  School Marks Dashboard &nbsp;|&nbsp; Django 6.1.2 + PostgreSQL 18 + Django REST Framework 3.18 &nbsp;|&nbsp; Server: <strong>student_analysis</strong> &mdash; localhost:5432
+</footer>
+</body>
+</html>

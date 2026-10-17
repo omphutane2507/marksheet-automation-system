@@ -1,0 +1,439 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In — EduMarks AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0a0f1e;
+      --card:   #111827;
+      --border: rgba(255,255,255,0.09);
+      --purple: #7c3aed;
+      --purple2:#a78bfa;
+      --teal:   #06b6d4;
+      --teal2:  #67e8f9;
+      --text:   #f1f5f9;
+      --muted:  #94a3b8;
+      --input:  #1f2937;
+      --error:  #f87171;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── LEFT PANEL ─────────────────────────────────── */
+    .left-panel {
+      position: relative;
+      background: linear-gradient(135deg, #120b2e 0%, #0d1f3c 50%, #071526 100%);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: flex-start;
+      padding: 60px 64px;
+      overflow: hidden;
+    }
+    .left-panel::before {
+      content: '';
+      position: absolute; top: -200px; left: -150px;
+      width: 550px; height: 550px;
+      background: radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .left-panel::after {
+      content: '';
+      position: absolute; bottom: -150px; right: -100px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .left-brand {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 64px; position: relative; z-index: 1;
+    }
+    .left-brand .logo {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--purple), var(--teal));
+      border-radius: 14px;
+      display: grid; place-items: center;
+      font-size: 22px; color: #fff;
+    }
+    .left-brand .name { font-size: 22px; font-weight: 700; }
+    .left-brand .sub  { font-size: 12px; color: var(--muted); }
+
+    .left-hero { position: relative; z-index: 1; }
+    .left-hero h2 {
+      font-size: 40px; font-weight: 800; line-height: 1.15;
+      margin-bottom: 16px;
+    }
+    .left-hero h2 .grad {
+      background: linear-gradient(135deg, var(--purple2), var(--teal2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .left-hero p {
+      font-size: 16px; color: var(--muted); line-height: 1.7;
+      max-width: 380px; margin-bottom: 44px;
+    }
+
+    .info-cards { display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 1; }
+    .info-card {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+    }
+    .info-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      border-radius: 10px;
+      display: grid; place-items: center; font-size: 16px;
+    }
+    .info-icon.purple { background: rgba(124,58,237,0.18); color: var(--purple2); }
+    .info-icon.teal   { background: rgba(6,182,212,0.18);  color: var(--teal2);   }
+    .info-icon.gold   { background: rgba(245,158,11,0.18); color: #fbbf24;        }
+    .info-card .ic-title { font-size: 14px; font-weight: 600; }
+    .info-card .ic-sub   { font-size: 12px; color: var(--muted); }
+
+    /* ── RIGHT PANEL (FORM) ──────────────────────────── */
+    .right-panel {
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px 48px;
+      background: var(--navy);
+    }
+    .login-box {
+      width: 100%; max-width: 400px;
+    }
+    .login-box h1 {
+      font-size: 28px; font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .login-box .subtitle {
+      font-size: 14px; color: var(--muted); margin-bottom: 36px;
+    }
+    .login-box .subtitle a {
+      color: var(--purple2); text-decoration: none; font-weight: 600;
+    }
+
+    /* Role Switcher */
+    .role-switcher {
+      display: flex;
+      background: var(--input);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 28px;
+    }
+    .role-tab {
+      flex: 1; padding: 9px;
+      text-align: center; font-size: 14px; font-weight: 600;
+      border-radius: 8px; cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+      border: none; background: transparent;
+      font-family: 'Outfit', sans-serif;
+    }
+    .role-tab.active {
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      color: #fff;
+    }
+    .role-tab.active.teal-mode {
+      background: linear-gradient(135deg, var(--teal), #0891b2);
+    }
+
+    /* Error box */
+    .error-box {
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px; color: var(--error);
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block; font-size: 13px; font-weight: 600;
+      color: var(--muted); margin-bottom: 7px; letter-spacing: 0.3px;
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap .input-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 15px;
+    }
+    .input-wrap input {
+      width: 100%; padding: 13px 14px 13px 42px;
+      background: var(--input);
+      border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px; color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrap input::placeholder { color: rgba(148,163,184,0.5); }
+    .input-wrap input:focus {
+      border-color: var(--purple);
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+    }
+    .input-wrap .eye-btn {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 15px; padding: 4px;
+    }
+    .input-wrap .eye-btn:hover { color: var(--text); }
+
+    .hint-text {
+      font-size: 12px; color: var(--muted);
+      margin-top: 6px; padding-left: 2px;
+    }
+    .hint-text strong { color: var(--purple2); }
+
+    .submit-btn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--purple), #5b21b6);
+      color: #fff; border: none; border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px; font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 6px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .submit-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(124,58,237,0.4);
+    }
+    .submit-btn:active { transform: translateY(0); }
+
+    .divider {
+      text-align: center; position: relative; margin: 24px 0;
+      color: var(--muted); font-size: 13px;
+    }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: calc(50% - 50px); height: 1px;
+      background: var(--border);
+    }
+    .divider::before { left: 0; }
+    .divider::after  { right: 0; }
+
+    .admin-portal-btn {
+      width: 100%; padding: 13px;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted); font-family: 'Outfit', sans-serif;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; text-decoration: none;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s;
+    }
+    .admin-portal-btn:hover {
+      border-color: rgba(255,255,255,0.2); color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .back-link {
+      text-align: center; margin-top: 28px;
+      font-size: 13px; color: var(--muted);
+    }
+    .back-link a { color: var(--purple2); text-decoration: none; font-weight: 600; }
+    .back-link a:hover { text-decoration: underline; }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      body { grid-template-columns: 1fr; }
+      .left-panel { display: none; }
+      .right-panel { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+<div class="left-panel">
+  <div class="left-brand">
+    <div class="logo"><i class="fa-solid fa-graduation-cap"></i></div>
+    <div>
+      <div class="name">EduMarks AI</div>
+      <div class="sub">School Analytics Hub</div>
+    </div>
+  </div>
+
+  <div class="left-hero">
+    <h2>Welcome Back.<br>Let's <span class="grad">Analyse</span><br>Today's Results.</h2>
+    <p>
+      Sign in to access your school's complete marks management system —
+      dashboards, result sheets, grade analytics, and more.
+    </p>
+
+    <div class="info-cards">
+      <div class="info-card">
+        <div class="info-icon purple"><i class="fa-solid fa-chart-pie"></i></div>
+        <div>
+          <div class="ic-title">Analytics Dashboard</div>
+          <div class="ic-sub">Charts, grades, pass rates — at a glance</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-icon teal"><i class="fa-solid fa-table-cells"></i></div>
+        <div>
+          <div class="ic-title">Result Sheets</div>
+          <div class="ic-sub">Full mark sheets for every class</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-icon gold"><i class="fa-solid fa-file-excel"></i></div>
+        <div>
+          <div class="ic-title">Excel Reports</div>
+          <div class="ic-sub">One-click export to .xlsx format</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL (FORM) -->
+<div class="right-panel">
+  <div class="login-box">
+
+    <h1>Sign In</h1>
+    <p class="subtitle">
+      Access your school portal &nbsp;&bull;&nbsp;
+      <a href="{% url 'landing' %}">
+        <i class="fa-solid fa-arrow-left" style="font-size:11px"></i> Back to Home
+      </a>
+    </p>
+
+    <!-- Role Switcher (visual only — both use same Django login) -->
+    <div class="role-switcher">
+      <button class="role-tab active" id="adminTab" onclick="switchRole('admin')">
+        <i class="fa-solid fa-shield-halved" style="font-size:12px;margin-right:6px"></i>Admin
+      </button>
+      <button class="role-tab" id="teacherTab" onclick="switchRole('teacher')">
+        <i class="fa-solid fa-chalkboard-user" style="font-size:12px;margin-right:6px"></i>Teacher
+      </button>
+    </div>
+
+    <!-- Django error messages -->
+    {% if form.errors %}
+    <div class="error-box">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span>Incorrect username or password. Please try again.</span>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <div class="form-group">
+        <label for="id_username">Username</label>
+        <div class="input-wrap">
+          <span class="input-icon"><i class="fa-solid fa-user"></i></span>
+          <input type="text" name="username" id="id_username"
+                 placeholder="Enter your username"
+                 value="{{ form.username.value|default:'' }}"
+                 autocomplete="username" required>
+        </div>
+        <div class="hint-text" id="usernameHint">
+          Admin: <strong>admin</strong>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="id_password">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon"><i class="fa-solid fa-lock"></i></span>
+          <input type="password" name="password" id="id_password"
+                 placeholder="Enter your password"
+                 autocomplete="current-password" required>
+          <button type="button" class="eye-btn" onclick="togglePassword()">
+            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+        <div class="hint-text" id="passwordHint">
+          Password: <strong>admin123</strong>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+        <span id="btnText">Sign In as Admin</span>
+      </button>
+    </form>
+
+    <div class="divider">or</div>
+
+    <a href="/admin/" class="admin-portal-btn">
+      <i class="fa-solid fa-screwdriver-wrench"></i>
+      Open Django Admin Panel
+    </a>
+
+    <div class="back-link">
+      <a href="{% url 'landing' %}">
+        <i class="fa-solid fa-house" style="font-size:11px"></i> Back to Home Page
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentRole = 'admin';
+
+  function switchRole(role) {
+    currentRole = role;
+    const adminTab   = document.getElementById('adminTab');
+    const teacherTab = document.getElementById('teacherTab');
+    const btnText    = document.getElementById('btnText');
+    const hint       = document.getElementById('usernameHint');
+    const phint      = document.getElementById('passwordHint');
+
+    if (role === 'admin') {
+      adminTab.classList.add('active');
+      teacherTab.classList.remove('active');
+      adminTab.classList.remove('teal-mode');
+      btnText.textContent = 'Sign In as Admin';
+      hint.innerHTML  = 'Admin: <strong>admin</strong>';
+      phint.innerHTML = 'Password: <strong>admin123</strong>';
+      document.getElementById('submitBtn').style.background =
+        'linear-gradient(135deg, #7c3aed, #5b21b6)';
+    } else {
+      teacherTab.classList.add('active', 'teal-mode');
+      adminTab.classList.remove('active');
+      btnText.textContent = 'Sign In as Teacher';
+      hint.innerHTML  = 'Use your assigned teacher username';
+      phint.innerHTML = 'Use your assigned password';
+      document.getElementById('submitBtn').style.background =
+        'linear-gradient(135deg, #06b6d4, #0891b2)';
+    }
+  }
+
+  function togglePassword() {
+    const pwd  = document.getElementById('id_password');
+    const icon = document.getElementById('eyeIcon');
+    if (pwd.type === 'password') {
+      pwd.type = 'text';
+      icon.className = 'fa-solid fa-eye-slash';
+    } else {
+      pwd.type = 'password';
+      icon.className = 'fa-solid fa-eye';
+    }
+  }
+</script>
+</body>
+</html>

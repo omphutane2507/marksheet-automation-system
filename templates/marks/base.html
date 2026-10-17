@@ -60,12 +60,25 @@
             </ul>
 
             <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                <a href="{% url 'seed_sample_data' %}" class="btn btn-sm btn-outline-light w-100 mb-2">
-                    <i class="fa-solid fa-database me-1"></i> Load Sample Std III A
-                </a>
-                <small class="text-white-50 text-center d-block" style="font-size: 0.75rem;">
-                    Academic Year 2022-23
-                </small>
+                <!-- User Info -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 8px;margin-bottom:8px;">
+                    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#06b6d4);display:grid;place-items:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;">
+                        {{ request.user.username|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <div style="font-size:13px;font-weight:600;color:#fff;">{{ request.user.username }}</div>
+                        <div style="font-size:11px;color:rgba(255,255,255,0.45);">
+                            {% if request.user.is_superuser %}Administrator{% else %}Teacher{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Logout -->
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:rgba(255,255,255,0.6);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,80,80,0.12)';this.style.color='#ff8080';this.style.borderColor='rgba(255,80,80,0.25)';" onmouseout="this.style.background='rgba(255,255,255,0.06)';this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.12)';">
+                        <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                    </button>
+                </form>
             </div>
         </aside>
 

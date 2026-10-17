@@ -24,6 +24,17 @@ def ensure_default_grade_rules():
             GradeRule.objects.create(**rule)
 
 
+def landing_view(request):
+    """
+    Public landing page shown to unauthenticated visitors.
+    Logged-in users are sent straight to the dashboard.
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    return render(request, 'landing.html')
+
+
+@login_required
 def dashboard_view(request):
     """
     Main Analytics Dashboard with Chart.js visualization:
