@@ -2,11 +2,16 @@ import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.db import transaction
 
-from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule
-from marks.forms import ClassRoomForm, StudentForm, SubjectForm, ExcelUploadForm, GradeRuleForm
+from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule, Organization, UserProfile
+from marks.forms import (
+    ClassRoomForm, StudentForm, SubjectForm, ExcelUploadForm, GradeRuleForm,
+    AdminRegisterForm, TeacherRegisterForm
+)
 from marks.services.calculations import (
     determine_grade,
     calculate_student_consolidated,
@@ -15,6 +20,131 @@ from marks.services.calculations import (
 )
 from marks.services.excel_import import process_excel_upload
 from marks.services.excel_export import export_class_excel
+
+
+# ---------------------------------------------------------------------------
+# Multi-Tenant Helpers
+# ---------------------------------------------------------------------------
+
+def get_user_org(request):
+    """Return the Organization for the logged-in user, or None."""
+    try:
+        return request.user.profile.organization
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Registration Views
+# ---------------------------------------------------------------------------
+
+def register_view(request):
+    """
+    Combined registration page. Shows admin and teacher registration tabs.
+    GET  -> render empty forms
+    POST -> detect which form was submitted via hidden 'role' field
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    admin_form   = AdminRegisterForm()
+    teacher_form = TeacherRegisterForm()
+    active_tab   = 'admin'
+
+    if request.method == 'POST':
+        role = request.POST.get('role', 'admin')
+        active_tab = role
+
+        if role == 'admin':
+            admin_form = AdminRegisterForm(request.POST)
+            if admin_form.is_valid():
+                cd = admin_form.cleaned_data
+                with transaction.atomic():
+                    # 1. Create User
+                    user = User.objects.create_user(
+                        username   = cd['username'],
+                        email      = cd['email'],
+                        password   = cd['password1'],
+                        first_name = cd['first_name'],
+                        last_name  = cd.get('last_name', ''),
+                    )
+                    # 2. Create Organisation
+                    org = Organization.objects.create(
+                        name  = cd['school_name'],
+                        admin = user,
+                    )
+                    # 3. Create UserProfile
+                    UserProfile.objects.create(
+                        user         = user,
+                        role         = UserProfile.ROLE_ADMIN,
+                        organization = org,
+                    )
+                auth_login(request, user)
+                messages.success(
+                    request,
+                    f"Welcome {user.first_name}! Your school '{org.name}' has been created. "
+                    f"Share your username '{user.username}' with teachers so they can register."
+                )
+                return redirect('dashboard')
+
+        elif role == 'teacher':
+            teacher_form = TeacherRegisterForm(request.POST)
+            if teacher_form.is_valid():
+                cd = teacher_form.cleaned_data
+                with transaction.atomic():
+                    admin_user = User.objects.get(username=cd['admin_username'])
+                    org        = Organization.objects.get(admin=admin_user)
+                    # 1. Create User
+                    user = User.objects.create_user(
+                        username   = cd['username'],
+                        email      = cd['email'],
+                        password   = cd['password1'],
+                        first_name = cd['first_name'],
+                        last_name  = cd.get('last_name', ''),
+                    )
+                    # 2. Create UserProfile linked to the org
+                    UserProfile.objects.create(
+                        user         = user,
+                        role         = UserProfile.ROLE_TEACHER,
+                        organization = org,
+                    )
+                auth_login(request, user)
+                messages.success(
+                    request,
+                    f"Welcome {user.first_name}! You have joined '{org.name}' as a Teacher."
+                )
+                return redirect('dashboard')
+
+    return render(request, 'registration/register.html', {
+        'admin_form':   admin_form,
+        'teacher_form': teacher_form,
+        'active_tab':   active_tab,
+    })
+
+
+def check_admin_username(request):
+    """
+    AJAX endpoint: check if an admin username exists and has an organisation.
+    Returns JSON: {valid, org_name, admin_display_name, member_count}
+    Called by the teacher registration form for live feedback.
+    """
+    username = request.GET.get('username', '').strip().lower()
+    if not username:
+        return JsonResponse({'valid': False, 'error': ''})
+    try:
+        admin_user = User.objects.get(username=username)
+        org = Organization.objects.get(admin=admin_user)
+        member_count = org.members.count()
+        return JsonResponse({
+            'valid': True,
+            'org_name':          org.name,
+            'admin_display_name': admin_user.get_full_name() or admin_user.username,
+            'member_count':      member_count,
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'valid': False, 'error': f"No admin account with username \"{username}\" exists."})
+    except Organization.DoesNotExist:
+        return JsonResponse({'valid': False, 'error': f"User \"{username}\" has not set up an organisation yet."})
 
 
 def ensure_default_grade_rules():
@@ -46,9 +176,10 @@ def dashboard_view(request):
     """
     ensure_default_grade_rules()
     
+    org = get_user_org(request)
     academic_years = AcademicYear.objects.all()
-    classes = ClassRoom.objects.select_related('academic_year').all()
-    
+    classes = ClassRoom.objects.select_related('academic_year').filter(organization=org)
+
     # Filter selection
     selected_class_id = request.GET.get('class_id')
     
@@ -155,14 +286,17 @@ def dashboard_view(request):
 
 
 def class_list_view(request):
-    """Lists all active classes and provides quick management forms."""
+    """Lists active classes for the current user's organisation."""
     ensure_default_grade_rules()
-    classes = ClassRoom.objects.select_related('academic_year').all()
+    org = get_user_org(request)
+    classes = ClassRoom.objects.select_related('academic_year').filter(organization=org)
 
     if request.method == 'POST':
         form = ClassRoomForm(request.POST)
         if form.is_valid():
-            classroom = form.save()
+            classroom = form.save(commit=False)
+            classroom.organization = org
+            classroom.save()
             messages.success(request, f"Class '{classroom}' created successfully!")
             return redirect('class_detail', class_id=classroom.id)
     else:

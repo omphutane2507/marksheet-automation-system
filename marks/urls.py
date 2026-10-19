@@ -7,6 +7,7 @@ urlpatterns = [
     # Public Pages (no login required)
     # -----------------------------------------------------------------------
     path('', views.landing_view, name='landing'),
+    path('api/check-admin/', views.check_admin_username, name='check_admin_username'),
 
     # -----------------------------------------------------------------------
     # App Pages (login required — handled by @login_required in views.py)
