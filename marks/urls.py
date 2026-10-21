@@ -24,6 +24,14 @@ urlpatterns = [
     path('seed-sample-data/', views.seed_sample_data, name='seed_sample_data'),
 
     # -----------------------------------------------------------------------
+    # Join Request Approval Workflow
+    # -----------------------------------------------------------------------
+    path('pending/', views.pending_approval_view, name='pending_approval'),
+    path('join-requests/', views.join_requests_view, name='join_requests'),
+    path('join-requests/<int:request_id>/approve/', views.approve_join_request, name='approve_join_request'),
+    path('join-requests/<int:request_id>/reject/',  views.reject_join_request,  name='reject_join_request'),
+
+    # -----------------------------------------------------------------------
     # REST API — for Power BI Web connector & external integrations
     # -----------------------------------------------------------------------
     path('api/marks/flat/', api_views.FlatMarksAPIView.as_view(), name='api_marks_flat'),

@@ -1,0 +1,155 @@
+{% extends 'marks/base.html' %}
+
+{% block title %}Join Requests | EduMarks AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-user-clock me-2"></i>Teacher Join Requests</h1>
+        <p class="page-subtitle">Review and manage teachers requesting access to your school workspace.</p>
+    </div>
+    {% if pending_count > 0 %}
+    <div style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.35);border-radius:10px;padding:10px 20px;display:flex;align-items:center;gap:10px;color:#f59e0b;font-weight:700;">
+        <i class="fa-solid fa-bell"></i>
+        {{ pending_count }} pending request{{ pending_count|pluralize }} awaiting your approval
+    </div>
+    {% endif %}
+</div>
+
+<!-- Pending Requests -->
+<div class="card-custom mb-4">
+    <div class="card-header-custom">
+        <h4><i class="fa-solid fa-hourglass-half text-warning me-2"></i>Pending Requests
+            {% if pending_count > 0 %}
+            <span class="badge bg-warning text-dark ms-2">{{ pending_count }}</span>
+            {% endif %}
+        </h4>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-custom">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Teacher Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Requested At</th>
+                    <th>Status</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jr in join_requests %}
+                    {% if jr.status == 'pending' %}
+                    <tr>
+                        <td style="color:var(--muted,#888);">{{ forloop.counter }}</td>
+                        <td class="fw-semibold">{{ jr.teacher_user.get_full_name|default:jr.teacher_user.username }}</td>
+                        <td>
+                            <code style="background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:6px;font-size:13px;">
+                                {{ jr.teacher_user.username }}
+                            </code>
+                        </td>
+                        <td style="color:#94a3b8;font-size:13px;">{{ jr.teacher_user.email }}</td>
+                        <td style="font-size:13px;color:#94a3b8;">{{ jr.requested_at|date:"d M Y, H:i" }}</td>
+                        <td>
+                            <span style="background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:100px;padding:3px 12px;font-size:12px;font-weight:700;">
+                                ⏳ Pending
+                            </span>
+                        </td>
+                        <td style="text-align:right;">
+                            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                                <form method="post" action="{% url 'approve_join_request' jr.id %}" style="margin:0;">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                        style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;"
+                                        onmouseover="this.style.background='rgba(16,185,129,0.3)'"
+                                        onmouseout="this.style.background='rgba(16,185,129,0.15)'">
+                                        <i class="fa-solid fa-check me-1"></i> Approve
+                                    </button>
+                                </form>
+                                <form method="post" action="{% url 'reject_join_request' jr.id %}" style="margin:0;">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                        style="background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;"
+                                        onmouseover="this.style.background='rgba(239,68,68,0.25)'"
+                                        onmouseout="this.style.background='rgba(239,68,68,0.12)'"
+                                        onclick="return confirm('Reject this teacher\'s request? They will be denied access.')">
+                                        <i class="fa-solid fa-xmark me-1"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                {% empty %}
+                {% endfor %}
+                {% if pending_count == 0 %}
+                <tr>
+                    <td colspan="7" class="text-center py-5" style="color:#94a3b8;">
+                        <i class="fa-solid fa-circle-check" style="font-size:2.5rem;color:#10b981;display:block;margin-bottom:10px;"></i>
+                        No pending requests. All caught up!
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- History: Approved & Rejected -->
+{% with history=join_requests %}
+{% for jr in history %}{% if jr.status != 'pending' %}{% if forloop.first %}
+<div class="card-custom">
+    <div class="card-header-custom">
+        <h4><i class="fa-solid fa-clock-rotate-left text-muted me-2"></i>Request History</h4>
+    </div>
+    <div class="table-responsive">
+        <table class="table-custom">
+            <thead>
+                <tr>
+                    <th>Teacher Name</th>
+                    <th>Username</th>
+                    <th>Requested</th>
+                    <th>Responded</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+{% endif %}{% endif %}{% endfor %}
+
+{% for jr in history %}
+    {% if jr.status != 'pending' %}
+                <tr>
+                    <td class="fw-semibold">{{ jr.teacher_user.get_full_name|default:jr.teacher_user.username }}</td>
+                    <td>
+                        <code style="background:rgba(255,255,255,0.06);padding:2px 8px;border-radius:6px;font-size:13px;">
+                            {{ jr.teacher_user.username }}
+                        </code>
+                    </td>
+                    <td style="font-size:13px;color:#94a3b8;">{{ jr.requested_at|date:"d M Y, H:i" }}</td>
+                    <td style="font-size:13px;color:#94a3b8;">{{ jr.responded_at|date:"d M Y, H:i"|default:"—" }}</td>
+                    <td>
+                        {% if jr.status == 'approved' %}
+                        <span style="background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.25);border-radius:100px;padding:3px 12px;font-size:12px;font-weight:700;">
+                            ✅ Approved
+                        </span>
+                        {% else %}
+                        <span style="background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:100px;padding:3px 12px;font-size:12px;font-weight:700;">
+                            ❌ Rejected
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+    {% endif %}
+{% endfor %}
+
+{% for jr in history %}{% if jr.status != 'pending' %}{% if forloop.last %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}{% endif %}{% endfor %}
+{% endwith %}
+
+{% endblock %}

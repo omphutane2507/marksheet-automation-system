@@ -191,6 +191,53 @@ class GradeRule(models.Model):
     def __str__(self):
         return f"Grade {self.grade}: {self.min_percentage}% to {self.max_percentage}%"
 
+
+# ---------------------------------------------------------------------------
+# Teacher Join Request (Approval Workflow)
+# ---------------------------------------------------------------------------
+
+class JoinRequest(models.Model):
+    """
+    When a teacher registers, a JoinRequest is created for the admin to approve.
+    Until approved, the teacher account exists but has no organization linked.
+    """
+    STATUS_PENDING  = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES  = [
+        (STATUS_PENDING,  'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    teacher_user  = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='join_request'
+    )
+    organization  = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name='join_requests'
+    )
+    status        = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    requested_at  = models.DateTimeField(auto_now_add=True)
+    responded_at  = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-requested_at']
+
+    def __str__(self):
+        return f"{self.teacher_user.username} → {self.organization.name} ({self.status})"
+
+    @property
+    def is_pending(self):
+        return self.status == self.STATUS_PENDING
+
+    @property
+    def is_approved(self):
+        return self.status == self.STATUS_APPROVED
+
+    @property
+    def is_rejected(self):
+        return self.status == self.STATUS_REJECTED
+
     @classmethod
     def get_default_rules(cls):
         """Returns standard default grade rules if none exist in the database."""

@@ -57,6 +57,19 @@
                         <span>Grade Settings</span>
                     </a>
                 </li>
+                {% if request.user.profile.is_admin %}
+                <li class="nav-item {% if request.resolver_match.url_name == 'join_requests' %}active{% endif %}" style="position:relative;">
+                    <a href="{% url 'join_requests' %}" style="display:flex;align-items:center;justify-content:space-between;">
+                        <span style="display:flex;align-items:center;gap:10px;">
+                            <i class="fa-solid fa-user-clock"></i>
+                            <span>Join Requests</span>
+                        </span>
+                        {% with reqs=request.user.profile.organization.join_requests.all %}
+                        {% for jr in reqs %}{% if jr.status == 'pending' %}{% if forloop.first %}<span style="background:#f59e0b;color:#000;border-radius:100px;font-size:11px;font-weight:700;padding:2px 8px;min-width:20px;text-align:center;" id="pendingBadge">{% endif %}{% if forloop.last %}{{ forloop.counter }}</span>{% endif %}{% endif %}{% endfor %}
+                        {% endwith %}
+                    </a>
+                </li>
+                {% endif %}
             </ul>
 
             <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
@@ -68,7 +81,7 @@
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#fff;">{{ request.user.username }}</div>
                         <div style="font-size:11px;color:rgba(255,255,255,0.45);">
-                            {% if request.user.is_superuser %}Administrator{% else %}Teacher{% endif %}
+                            {% if request.user.profile.is_admin %}Administrator{% else %}Teacher{% endif %}
                         </div>
                     </div>
                 </div>

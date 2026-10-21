@@ -1,0 +1,211 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Access Pending — EduMarks AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:   #0a0f1e;
+      --card:   #111827;
+      --border: rgba(255,255,255,0.08);
+      --purple: #7c3aed;
+      --teal:   #06b6d4;
+      --amber:  #f59e0b;
+      --green:  #10b981;
+      --red:    #ef4444;
+      --text:   #f1f5f9;
+      --muted:  #94a3b8;
+    }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(140px); opacity: 0.15; }
+    .orb1 { width: 500px; height: 500px; background: var(--purple); top: -150px; left: -100px; }
+    .orb2 { width: 350px; height: 350px; background: var(--teal);   bottom: -100px; right: -80px; }
+    .orb3 { width: 300px; height: 300px; background: var(--amber);  top: 50%; left: 50%; transform: translate(-50%,-50%); }
+
+    .card {
+      position: relative; z-index: 1;
+      background: rgba(17,24,39,0.95);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 52px 48px;
+      max-width: 520px; width: 100%; margin: 24px;
+      text-align: center;
+    }
+
+    /* Status icon ring */
+    .status-ring {
+      width: 88px; height: 88px; border-radius: 50%;
+      display: grid; place-items: center;
+      margin: 0 auto 28px;
+      font-size: 32px;
+      position: relative;
+    }
+    .status-ring::before {
+      content: '';
+      position: absolute; inset: -4px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      animation: spin-ring 3s linear infinite;
+    }
+    .status-pending  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .status-pending::before  { border-top-color: var(--amber); border-right-color: rgba(245,158,11,0.3); }
+    .status-rejected { background: rgba(239,68,68,0.12); color: var(--red); animation: none; }
+    .status-rejected::before { display: none; }
+
+    @keyframes spin-ring { to { transform: rotate(360deg); } }
+
+    .badge-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 14px; border-radius: 100px;
+      font-size: 12px; font-weight: 700; letter-spacing: .5px;
+      text-transform: uppercase; margin-bottom: 20px;
+    }
+    .badge-pending  { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-rejected { background: rgba(239,68,68,0.12);  color: var(--red);   border: 1px solid rgba(239,68,68,0.3); }
+
+    h1 { font-size: 26px; font-weight: 800; margin-bottom: 12px; }
+    p  { font-size: 15px; color: var(--muted); line-height: 1.65; }
+
+    .info-panel {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      margin: 28px 0; text-align: left;
+    }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+    .info-row:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .info-label { color: var(--muted); }
+    .info-value { font-weight: 600; color: var(--text); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 10px; border: none;
+      font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer; text-decoration: none; transition: all .2s;
+    }
+    .btn-refresh {
+      background: rgba(6,182,212,0.15); color: var(--teal);
+      border: 1px solid rgba(6,182,212,0.3);
+    }
+    .btn-refresh:hover { background: rgba(6,182,212,0.25); }
+    .btn-logout {
+      background: rgba(255,255,255,0.06); color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-logout:hover { background: rgba(255,80,80,0.12); color: #ff8080; border-color: rgba(255,80,80,0.3); }
+
+    .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+
+    .rejected-help {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 12px; padding: 16px 18px;
+      margin: 24px 0; font-size: 13px; color: #fca5a5;
+      text-align: left; line-height: 1.6;
+    }
+
+    .pulse-dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--amber);
+      animation: pulse-dot 1.5s ease-in-out infinite;
+      margin-right: 6px;
+    }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.7); } }
+  </style>
+</head>
+<body>
+<div class="bg-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<div class="card">
+  {% if join_request and join_request.is_rejected %}
+
+    <!-- ── REJECTED STATE ───────────────────────── -->
+    <div class="status-ring status-rejected"><i class="fa-solid fa-ban"></i></div>
+    <div class="badge-status badge-rejected"><i class="fa-solid fa-circle-xmark"></i> Request Rejected</div>
+    <h1>Access Denied</h1>
+    <p>Unfortunately your request to join the school workspace was rejected by the administrator.</p>
+
+    <div class="rejected-help">
+      <strong><i class="fa-solid fa-circle-info"></i> What to do?</strong><br>
+      Contact your school's administrator and ask them to approve your request or create a new account
+      with the correct admin username.
+    </div>
+
+    {% if join_request %}
+    <div class="info-panel">
+      <div class="info-row">
+        <span class="info-label">School</span>
+        <span class="info-value">{{ join_request.organization.name }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Requested</span>
+        <span class="info-value">{{ join_request.requested_at|date:"d M Y, H:i" }}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="actions">
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+      </form>
+    </div>
+
+  {% else %}
+
+    <!-- ── PENDING STATE ─────────────────────────── -->
+    <div class="status-ring status-pending"><i class="fa-solid fa-hourglass-half"></i></div>
+    <div class="badge-status badge-pending"><span class="pulse-dot"></span> Awaiting Approval</div>
+    <h1>Request Sent!</h1>
+    <p>Your account has been created. Your request to join the school workspace is now waiting for the administrator's approval.</p>
+
+    {% if join_request %}
+    <div class="info-panel">
+      <div class="info-row">
+        <span class="info-label">School</span>
+        <span class="info-value">{{ join_request.organization.name }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Requested at</span>
+        <span class="info-value">{{ join_request.requested_at|date:"d M Y, H:i" }}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-value" style="color:var(--amber);">⏳ Pending</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <p style="font-size:13px;">Once the admin approves your request, click <strong>Check Status</strong> below to access the dashboard.</p>
+
+    <div class="actions" style="margin-top:24px;">
+      <a href="{% url 'pending_approval' %}" class="btn btn-refresh">
+        <i class="fa-solid fa-rotate-right"></i> Check Status
+      </a>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-logout"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+      </form>
+    </div>
+
+  {% endif %}
+</div>
+</body>
+</html>

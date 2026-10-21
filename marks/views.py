@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule, Organization, UserProfile
+from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule, Organization, UserProfile, JoinRequest
 from marks.forms import (
     ClassRoomForm, StudentForm, SubjectForm, ExcelUploadForm, GradeRuleForm,
     AdminRegisterForm, TeacherRegisterForm
@@ -32,6 +32,23 @@ def get_user_org(request):
         return request.user.profile.organization
     except Exception:
         return None
+
+
+def require_active_org(request):
+    """
+    Returns a redirect response if the logged-in teacher has no org yet
+    (pending or rejected join request), otherwise returns None.
+    Admins always pass through.
+    """
+    try:
+        profile = request.user.profile
+    except Exception:
+        return None  # superuser or no profile — let through
+    if profile.is_admin:
+        return None  # admins always have access
+    if profile.organization is None:
+        return redirect('pending_approval')
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -102,18 +119,25 @@ def register_view(request):
                         first_name = cd['first_name'],
                         last_name  = cd.get('last_name', ''),
                     )
-                    # 2. Create UserProfile linked to the org
+                    # 2. Create UserProfile — no org yet (pending approval)
                     UserProfile.objects.create(
                         user         = user,
                         role         = UserProfile.ROLE_TEACHER,
+                        organization = None,
+                    )
+                    # 3. Create JoinRequest for the admin to review
+                    JoinRequest.objects.create(
+                        teacher_user = user,
                         organization = org,
+                        status       = JoinRequest.STATUS_PENDING,
                     )
                 auth_login(request, user)
-                messages.success(
+                messages.info(
                     request,
-                    f"Welcome {user.first_name}! You have joined '{org.name}' as a Teacher."
+                    f"Account created! Your request to join '{org.name}' has been sent to the admin. "
+                    f"You'll get access once they approve it."
                 )
-                return redirect('dashboard')
+                return redirect('pending_approval')
 
     return render(request, 'registration/register.html', {
         'admin_form':   admin_form,
@@ -154,6 +178,29 @@ def ensure_default_grade_rules():
             GradeRule.objects.create(**rule)
 
 
+@login_required
+def pending_approval_view(request):
+    """
+    Shown to teachers whose join request is still pending or was rejected.
+    Also handles the case where the teacher has been approved and can now access the dashboard.
+    """
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+
+    # Already approved — send to dashboard
+    if profile.organization is not None:
+        return redirect('dashboard')
+
+    # Look up the join request
+    join_request = JoinRequest.objects.filter(teacher_user=request.user).first()
+
+    return render(request, 'registration/pending.html', {
+        'join_request': join_request,
+    })
+
+
 def landing_view(request):
     """
     Public landing page shown to unauthenticated visitors.
@@ -166,6 +213,9 @@ def landing_view(request):
 
 @login_required
 def dashboard_view(request):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """
     Main Analytics Dashboard with Chart.js visualization:
     - Summary Cards: Total Students, Class Average %, Pass %
@@ -286,6 +336,9 @@ def dashboard_view(request):
 
 
 def class_list_view(request):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """Lists active classes for the current user's organisation."""
     ensure_default_grade_rules()
     org = get_user_org(request)
@@ -311,6 +364,9 @@ def class_list_view(request):
 
 
 def class_detail_view(request, class_id):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """
     Detailed class analysis view showing:
     1. Consolidated student mark sheet
@@ -385,6 +441,9 @@ def class_detail_view(request, class_id):
 
 
 def marks_entry_view(request, class_id):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """
     Subject Marks Entry interface:
     Displays dynamic table with Roll No, Name, Marks input, Absent checkbox, and automatic grade preview.
@@ -479,6 +538,9 @@ def marks_entry_view(request, class_id):
 
 
 def excel_upload_view(request):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """Excel Upload Interface for multi-sheet workbook import with validation feedback."""
     if request.method == 'POST':
         form = ExcelUploadForm(request.POST, request.FILES)
@@ -517,6 +579,9 @@ def excel_export_view(request, class_id):
 
 
 def grade_rules_view(request):
+    guard = require_active_org(request)
+    if guard:
+        return guard
     """View and edit grade boundary settings and standard rules."""
     ensure_default_grade_rules()
     rules = GradeRule.objects.all()
@@ -627,3 +692,100 @@ def seed_sample_data(request):
 
     messages.success(request, f"Sample dataset loaded for Std III A (5 students, 6 subjects including Computer)!")
     return redirect('class_detail', class_id=classroom.id)
+
+
+# ---------------------------------------------------------------------------
+# Admin: Join Request Approval Workflow
+# ---------------------------------------------------------------------------
+
+@login_required
+def join_requests_view(request):
+    """
+    Admin-only page listing all pending (and recent) join requests for their org.
+    """
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can manage join requests.")
+        return redirect('dashboard')
+
+    org = profile.organization
+    requests_qs = JoinRequest.objects.filter(organization=org).select_related('teacher_user')
+
+    return render(request, 'marks/join_requests.html', {
+        'join_requests': requests_qs,
+        'pending_count': requests_qs.filter(status=JoinRequest.STATUS_PENDING).count(),
+    })
+
+
+@login_required
+def approve_join_request(request, request_id):
+    """Approve a teacher's join request — links them to the org."""
+    from django.utils import timezone
+
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can approve join requests.")
+        return redirect('dashboard')
+
+    join_req = get_object_or_404(JoinRequest, pk=request_id, organization=profile.organization)
+
+    if join_req.status != JoinRequest.STATUS_PENDING:
+        messages.warning(request, f"This request has already been {join_req.status}.")
+        return redirect('join_requests')
+
+    with transaction.atomic():
+        # Link teacher to org
+        teacher_profile = join_req.teacher_user.profile
+        teacher_profile.organization = profile.organization
+        teacher_profile.save()
+        # Mark request approved
+        join_req.status = JoinRequest.STATUS_APPROVED
+        join_req.responded_at = timezone.now()
+        join_req.save()
+
+    messages.success(
+        request,
+        f"✅ {join_req.teacher_user.get_full_name() or join_req.teacher_user.username} has been approved "
+        f"and can now access the school workspace."
+    )
+    return redirect('join_requests')
+
+
+@login_required
+def reject_join_request(request, request_id):
+    """Reject a teacher's join request."""
+    from django.utils import timezone
+
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can reject join requests.")
+        return redirect('dashboard')
+
+    join_req = get_object_or_404(JoinRequest, pk=request_id, organization=profile.organization)
+
+    if join_req.status != JoinRequest.STATUS_PENDING:
+        messages.warning(request, f"This request has already been {join_req.status}.")
+        return redirect('join_requests')
+
+    with transaction.atomic():
+        join_req.status = JoinRequest.STATUS_REJECTED
+        join_req.responded_at = timezone.now()
+        join_req.save()
+
+    messages.info(
+        request,
+        f"❌ Request from {join_req.teacher_user.get_full_name() or join_req.teacher_user.username} has been rejected."
+    )
+    return redirect('join_requests')
