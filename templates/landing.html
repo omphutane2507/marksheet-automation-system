@@ -255,11 +255,15 @@
     .admin-card   .card-btn:hover { box-shadow: 0 8px 25px rgba(124,58,237,0.45); }
     .teacher-card .card-btn:hover { box-shadow: 0 8px 25px rgba(6,182,212,0.45);  }
     .register-card-link {
-      display: block; text-align: center; margin-top: 12px;
+      display: block; text-align: center; margin-top: 14px;
       font-size: 13px; color: var(--muted); text-decoration: none;
       position: relative; z-index: 1; transition: color .2s;
+      padding: 8px 0;
+      border-top: 1px solid rgba(255,255,255,0.07);
     }
     .register-card-link:hover { color: var(--text); }
+    .admin-card   .register-card-link:hover { color: var(--purple2); }
+    .teacher-card .register-card-link:hover { color: var(--teal2); }
 
     /* ── STATS ROW ───────────────────────────────────── */
     .stats-row {
@@ -412,7 +416,7 @@
   <div class="login-cards">
 
     <!-- Admin Card -->
-    <a href="{% url 'login' %}" class="login-card admin-card">
+    <div class="login-card admin-card">
       <div class="card-icon-wrap">
         <i class="fa-solid fa-shield-halved"></i>
       </div>
@@ -439,16 +443,16 @@
           Grade Rules Configuration
         </div>
       </div>
-      <button class="card-btn">
+      <a href="{% url 'login' %}" class="card-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;">
         <i class="fa-solid fa-arrow-right-to-bracket"></i> Login as Admin
-      </button>
+      </a>
       <a href="{% url 'register' %}?tab=admin" class="register-card-link">
         <i class="fa-solid fa-user-plus" style="font-size:12px"></i> New here? Create admin account
       </a>
-    </a>
+    </div>
 
     <!-- Teacher Card -->
-    <a href="{% url 'login' %}" class="login-card teacher-card">
+    <div class="login-card teacher-card">
       <div class="card-icon-wrap">
         <i class="fa-solid fa-chalkboard-user"></i>
       </div>
@@ -475,13 +479,13 @@
           Grade Distribution Charts
         </div>
       </div>
-      <button class="card-btn">
+      <a href="{% url 'login' %}" class="card-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;">
         <i class="fa-solid fa-arrow-right-to-bracket"></i> Login as Teacher
-      </button>
+      </a>
       <a href="{% url 'register' %}?tab=teacher" class="register-card-link">
         <i class="fa-solid fa-user-plus" style="font-size:12px"></i> New here? Create teacher account
       </a>
-    </a>
+    </div>
 
   </div>
 

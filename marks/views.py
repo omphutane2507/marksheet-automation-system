@@ -7,7 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule, Organization, UserProfile, JoinRequest
+from marks.models import AcademicYear, ClassRoom, Student, Subject, Mark, GradeRule, Organization, UserProfile, JoinRequest, TeacherPermission
 from marks.forms import (
     ClassRoomForm, StudentForm, SubjectForm, ExcelUploadForm, GradeRuleForm,
     AdminRegisterForm, TeacherRegisterForm
@@ -51,6 +51,53 @@ def require_active_org(request):
     return None
 
 
+def get_teacher_permission(user, classroom, subject=None):
+    """
+    Returns the effective permission role ('editor' or 'viewer') for a teacher
+    on a given classroom/subject. Subject-level overrides class-level.
+    Admins always return 'editor'. Returns None if no permission exists.
+    """
+    try:
+        profile = user.profile
+        if profile.is_admin:
+            return TeacherPermission.ROLE_EDITOR
+    except Exception:
+        return TeacherPermission.ROLE_EDITOR  # superuser passthrough
+
+    # Subject-level check (most specific)
+    if subject:
+        sub_perm = TeacherPermission.objects.filter(
+            teacher=user, classroom=classroom, subject=subject
+        ).first()
+        if sub_perm:
+            return sub_perm.role
+
+    # Class-level check (fallback)
+    class_perm = TeacherPermission.objects.filter(
+        teacher=user, classroom=classroom, subject=None
+    ).first()
+    return class_perm.role if class_perm else None
+
+
+def get_user_classes(request):
+    """Return the queryset of ClassRooms visible to the current user."""
+    org = get_user_org(request)
+    if not org:
+        return ClassRoom.objects.none()
+    all_classes = ClassRoom.objects.select_related('academic_year').filter(organization=org)
+    try:
+        profile = request.user.profile
+    except Exception:
+        return all_classes  # superuser
+    if profile.is_admin:
+        return all_classes
+    # Teachers: only classes they have ANY permission for
+    permitted_ids = TeacherPermission.objects.filter(
+        teacher=request.user
+    ).values_list('classroom_id', flat=True).distinct()
+    return all_classes.filter(id__in=permitted_ids)
+
+
 # ---------------------------------------------------------------------------
 # Registration Views
 # ---------------------------------------------------------------------------
@@ -66,7 +113,9 @@ def register_view(request):
 
     admin_form   = AdminRegisterForm()
     teacher_form = TeacherRegisterForm()
-    active_tab   = 'admin'
+    active_tab   = request.GET.get('tab', 'admin')  # read ?tab= from GET
+    if active_tab not in ('admin', 'teacher'):
+        active_tab = 'admin'
 
     if request.method == 'POST':
         role = request.POST.get('role', 'admin')
@@ -132,11 +181,7 @@ def register_view(request):
                         status       = JoinRequest.STATUS_PENDING,
                     )
                 auth_login(request, user)
-                messages.info(
-                    request,
-                    f"Account created! Your request to join '{org.name}' has been sent to the admin. "
-                    f"You'll get access once they approve it."
-                )
+                # No flash message — pending.html communicates the status clearly
                 return redirect('pending_approval')
 
     return render(request, 'registration/register.html', {
@@ -228,7 +273,7 @@ def dashboard_view(request):
     
     org = get_user_org(request)
     academic_years = AcademicYear.objects.all()
-    classes = ClassRoom.objects.select_related('academic_year').filter(organization=org)
+    classes = get_user_classes(request)  # respects teacher permissions
 
     # Filter selection
     selected_class_id = request.GET.get('class_id')
@@ -339,10 +384,10 @@ def class_list_view(request):
     guard = require_active_org(request)
     if guard:
         return guard
-    """Lists active classes for the current user's organisation."""
+    """Lists active classes the current user has access to."""
     ensure_default_grade_rules()
     org = get_user_org(request)
-    classes = ClassRoom.objects.select_related('academic_year').filter(organization=org)
+    classes = get_user_classes(request)
 
     if request.method == 'POST':
         form = ClassRoomForm(request.POST)
@@ -368,13 +413,17 @@ def class_detail_view(request, class_id):
     if guard:
         return guard
     """
-    Detailed class analysis view showing:
-    1. Consolidated student mark sheet
-    2. Individual subject analysis tables
-    3. Overall result analysis comparison table
+    Detailed class analysis view. Teachers need at least viewer permission.
     """
     ensure_default_grade_rules()
     classroom = get_object_or_404(ClassRoom, pk=class_id)
+
+    # Permission check for teachers
+    perm = get_teacher_permission(request.user, classroom)
+    if perm is None:
+        messages.error(request, "You don't have permission to access this class.")
+        return redirect('class_list')
+    is_editor = (perm == TeacherPermission.ROLE_EDITOR)
     students = list(Student.objects.filter(classroom=classroom).order_by('roll_number'))
     subjects = list(Subject.objects.filter(classroom=classroom).order_by('order', 'name'))
     grade_rules = list(GradeRule.objects.all())
@@ -436,6 +485,7 @@ def class_detail_view(request, class_id):
         'class_overview': class_overview,
         'subject_form': SubjectForm(),
         'student_form': StudentForm(),
+        'is_editor': is_editor,   # controls edit buttons in template
     }
     return render(request, 'marks/class_detail.html', context)
 
@@ -445,9 +495,8 @@ def marks_entry_view(request, class_id):
     if guard:
         return guard
     """
-    Subject Marks Entry interface:
-    Displays dynamic table with Roll No, Name, Marks input, Absent checkbox, and automatic grade preview.
-    Validates marks <= subject out_of_marks on submit.
+    Subject Marks Entry interface.
+    Requires editor permission at class level (or subject-level override).
     """
     classroom = get_object_or_404(ClassRoom, pk=class_id)
     subjects = Subject.objects.filter(classroom=classroom).order_by('order', 'name')
@@ -458,6 +507,16 @@ def marks_entry_view(request, class_id):
     else:
         current_subject = subjects.first()
 
+    # Permission check
+    class_perm = get_teacher_permission(request.user, classroom)
+    if class_perm is None:
+        messages.error(request, "You don't have permission to access this class.")
+        return redirect('class_list')
+    # Subject-level may override class-level
+    effective_perm = get_teacher_permission(request.user, classroom, current_subject) if current_subject else class_perm
+    if effective_perm == TeacherPermission.ROLE_VIEWER:
+        messages.warning(request, "You have view-only access — marks entry is restricted for this class/subject.")
+        return redirect('class_detail', class_id=class_id)
     if not current_subject:
         messages.warning(request, "Please add at least one subject to this class before entering marks.")
         return redirect('class_detail', class_id=classroom.id)
@@ -789,3 +848,100 @@ def reject_join_request(request, request_id):
         f"❌ Request from {join_req.teacher_user.get_full_name() or join_req.teacher_user.username} has been rejected."
     )
     return redirect('join_requests')
+
+
+# ---------------------------------------------------------------------------
+# Admin: Teacher Permission Management
+# ---------------------------------------------------------------------------
+
+@login_required
+def teacher_permissions_view(request):
+    """Admin page — manage teacher access (editor/viewer) per class & subject."""
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can manage teacher permissions.")
+        return redirect('dashboard')
+
+    org = profile.organization
+    teachers = UserProfile.objects.filter(
+        organization=org, role=UserProfile.ROLE_TEACHER
+    ).select_related('user')
+    classes = ClassRoom.objects.filter(organization=org).prefetch_related('subjects').select_related('academic_year')
+
+    selected_teacher = None
+    teacher_perms    = []
+    selected_teacher_id = request.GET.get('teacher_id')
+    if selected_teacher_id:
+        try:
+            selected_teacher = User.objects.get(pk=selected_teacher_id, profile__organization=org)
+            teacher_perms = TeacherPermission.objects.filter(
+                teacher=selected_teacher
+            ).select_related('classroom', 'subject', 'classroom__academic_year')
+        except User.DoesNotExist:
+            pass
+
+    return render(request, 'marks/teacher_permissions.html', {
+        'teachers': teachers,
+        'classes': classes,
+        'selected_teacher': selected_teacher,
+        'teacher_perms': teacher_perms,
+        'role_editor': TeacherPermission.ROLE_EDITOR,
+        'role_viewer': TeacherPermission.ROLE_VIEWER,
+    })
+
+
+@login_required
+def grant_permission_view(request):
+    """POST: Create or update a TeacherPermission record."""
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can grant permissions.")
+        return redirect('dashboard')
+    if request.method != 'POST':
+        return redirect('teacher_permissions')
+
+    teacher_id = request.POST.get('teacher_id')
+    class_id   = request.POST.get('class_id')
+    subject_id = request.POST.get('subject_id') or None
+    role       = request.POST.get('role', TeacherPermission.ROLE_VIEWER)
+
+    teacher   = get_object_or_404(User, pk=teacher_id)
+    classroom = get_object_or_404(ClassRoom, pk=class_id, organization=profile.organization)
+    subject   = get_object_or_404(Subject, pk=subject_id, classroom=classroom) if subject_id else None
+
+    TeacherPermission.objects.update_or_create(
+        teacher=teacher, classroom=classroom, subject=subject,
+        defaults={'role': role, 'granted_by': request.user}
+    )
+    scope = subject.name if subject else 'All Subjects'
+    messages.success(request, f"\u2705 {teacher.get_full_name() or teacher.username} granted {role} access to {classroom} / {scope}.")
+    return redirect(f"/teacher-permissions/?teacher_id={teacher_id}")
+
+
+@login_required
+def revoke_permission_view(request, perm_id):
+    """POST: Delete a TeacherPermission record."""
+    try:
+        profile = request.user.profile
+    except Exception:
+        return redirect('dashboard')
+    if not profile.is_admin:
+        messages.error(request, "Only administrators can revoke permissions.")
+        return redirect('dashboard')
+
+    perm = get_object_or_404(
+        TeacherPermission, pk=perm_id,
+        classroom__organization=profile.organization
+    )
+    teacher_id = perm.teacher_id
+    scope = perm.subject.name if perm.subject else 'All Subjects'
+    label = f"{perm.teacher.username} / {perm.classroom} / {scope}"
+    perm.delete()
+    messages.info(request, f"\u274c Permission removed: {label}.")
+    return redirect(f"/teacher-permissions/?teacher_id={teacher_id}")

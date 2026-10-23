@@ -1,0 +1,248 @@
+{% extends 'marks/base.html' %}
+
+{% block title %}Manage Permissions | EduMarks AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-user-shield me-2"></i>Manage Teacher Permissions</h1>
+        <p class="page-subtitle">Control which classes and subjects each teacher can edit or view.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <!-- ── LEFT: Teacher List ── -->
+    <div class="col-lg-3">
+        <div class="card-custom h-100">
+            <div class="card-header-custom">
+                <h5><i class="fa-solid fa-users me-2 text-primary"></i>Teachers</h5>
+            </div>
+            <div style="padding:0;">
+                {% for tp in teachers %}
+                <a href="?teacher_id={{ tp.user.id }}"
+                   style="display:flex;align-items:center;gap:12px;padding:14px 20px;text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.06);transition:background .15s;
+                   {% if selected_teacher and selected_teacher.id == tp.user.id %}background:rgba(124,58,237,0.12);{% endif %}"
+                   onmouseover="this.style.background='rgba(255,255,255,0.04)'"
+                   onmouseout="this.style.background='{% if selected_teacher and selected_teacher.id == tp.user.id %}rgba(124,58,237,0.12){% else %}transparent{% endif %}'">
+                    <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);display:grid;place-items:center;font-weight:700;font-size:14px;color:#fff;flex-shrink:0;">
+                        {{ tp.user.username|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <div style="font-size:14px;font-weight:600;color:#f1f5f9;">{{ tp.user.get_full_name|default:tp.user.username }}</div>
+                        <div style="font-size:12px;color:#64748b;">{{ tp.user.username }}</div>
+                    </div>
+                    {% if selected_teacher and selected_teacher.id == tp.user.id %}
+                    <i class="fa-solid fa-chevron-right ms-auto" style="color:#7c3aed;font-size:12px;"></i>
+                    {% endif %}
+                </a>
+                {% empty %}
+                <div style="padding:24px;text-align:center;color:#64748b;font-size:14px;">
+                    <i class="fa-solid fa-users-slash d-block mb-2" style="font-size:2rem;"></i>
+                    No approved teachers yet.<br>
+                    <small>Approve join requests first.</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ── RIGHT: Permission Panel ── -->
+    <div class="col-lg-9">
+
+        {% if not selected_teacher %}
+        <!-- No teacher selected -->
+        <div class="card-custom text-center py-5">
+            <i class="fa-solid fa-arrow-left" style="font-size:2.5rem;color:#334155;margin-bottom:16px;display:block;"></i>
+            <h5 style="color:#94a3b8;">Select a teacher from the list</h5>
+            <p style="color:#475569;font-size:14px;">Choose a teacher on the left to manage their class and subject access.</p>
+        </div>
+
+        {% else %}
+
+        <!-- Teacher header -->
+        <div class="card-custom mb-4">
+            <div style="display:flex;align-items:center;gap:16px;padding:20px 24px;">
+                <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#0891b2);display:grid;place-items:center;font-weight:800;font-size:20px;color:#fff;flex-shrink:0;">
+                    {{ selected_teacher.username|slice:":1"|upper }}
+                </div>
+                <div>
+                    <div style="font-size:18px;font-weight:700;color:#f1f5f9;">{{ selected_teacher.get_full_name|default:selected_teacher.username }}</div>
+                    <div style="font-size:13px;color:#64748b;">@{{ selected_teacher.username }} &nbsp;·&nbsp; {{ selected_teacher.email }}</div>
+                </div>
+                <span style="margin-left:auto;background:rgba(6,182,212,0.15);color:#06b6d4;border:1px solid rgba(6,182,212,0.3);border-radius:100px;padding:4px 14px;font-size:12px;font-weight:700;">
+                    Teacher
+                </span>
+            </div>
+        </div>
+
+        <!-- Current Permissions Table -->
+        <div class="card-custom mb-4">
+            <div class="card-header-custom">
+                <h5><i class="fa-solid fa-list-check me-2 text-success"></i>Current Permissions
+                    <span class="badge bg-secondary ms-2">{{ teacher_perms|length }}</span>
+                </h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table-custom">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Subject</th>
+                            <th>Role</th>
+                            <th>Granted</th>
+                            <th style="text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in teacher_perms %}
+                        <tr>
+                            <td class="fw-semibold">{{ p.classroom }}</td>
+                            <td>
+                                {% if p.subject %}
+                                    <span style="background:rgba(6,182,212,0.12);color:#67e8f9;border-radius:6px;padding:2px 10px;font-size:12px;">
+                                        {{ p.subject.name }}
+                                    </span>
+                                {% else %}
+                                    <span style="color:#64748b;font-size:13px;"><i class="fa-solid fa-layer-group me-1"></i>All Subjects</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.role == role_editor %}
+                                <span style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:100px;padding:3px 12px;font-size:12px;font-weight:700;">
+                                    <i class="fa-solid fa-pen me-1"></i> Editor
+                                </span>
+                                {% else %}
+                                <span style="background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:100px;padding:3px 12px;font-size:12px;font-weight:700;">
+                                    <i class="fa-solid fa-eye me-1"></i> Viewer
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td style="font-size:12px;color:#64748b;">{{ p.created_at|date:"d M Y" }}</td>
+                            <td style="text-align:right;">
+                                <form method="post" action="{% url 'revoke_permission' p.id %}" style="display:inline;"
+                                      onsubmit="return confirm('Remove this permission?')">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                        style="background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;"
+                                        onmouseover="this.style.background='rgba(239,68,68,0.25)'"
+                                        onmouseout="this.style.background='rgba(239,68,68,0.12)'">
+                                        <i class="fa-solid fa-trash-can me-1"></i> Revoke
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4" style="color:#64748b;">
+                                <i class="fa-solid fa-ban d-block mb-2" style="font-size:1.8rem;"></i>
+                                No permissions yet. Grant access below.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Grant New Permission Form -->
+        <div class="card-custom">
+            <div class="card-header-custom">
+                <h5><i class="fa-solid fa-plus-circle me-2 text-primary"></i>Grant New Permission</h5>
+            </div>
+            <div style="padding:24px;">
+                <form method="post" action="{% url 'grant_permission' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="teacher_id" value="{{ selected_teacher.id }}">
+
+                    <div class="row g-3 align-items-end">
+                        <!-- Class selector -->
+                        <div class="col-md-4">
+                            <label style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:6px;display:block;">
+                                <i class="fa-solid fa-chalkboard me-1"></i> Class *
+                            </label>
+                            <select name="class_id" id="classSelect" required
+                                style="width:100%;padding:10px 14px;background:#1f2937;border:1.5px solid rgba(255,255,255,0.08);border-radius:10px;color:#f1f5f9;font-family:inherit;font-size:14px;outline:none;"
+                                onchange="loadSubjects(this.value)">
+                                <option value="">— Select Class —</option>
+                                {% for c in classes %}
+                                <option value="{{ c.id }}">{{ c.class_name }} {{ c.division }} ({{ c.academic_year.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Subject selector (dynamic) -->
+                        <div class="col-md-3">
+                            <label style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:6px;display:block;">
+                                <i class="fa-solid fa-book me-1"></i> Subject (optional)
+                            </label>
+                            <select name="subject_id" id="subjectSelect"
+                                style="width:100%;padding:10px 14px;background:#1f2937;border:1.5px solid rgba(255,255,255,0.08);border-radius:10px;color:#f1f5f9;font-family:inherit;font-size:14px;outline:none;">
+                                <option value="">All Subjects</option>
+                            </select>
+                        </div>
+
+                        <!-- Role selector -->
+                        <div class="col-md-2">
+                            <label style="font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:6px;display:block;">
+                                <i class="fa-solid fa-shield-halved me-1"></i> Role *
+                            </label>
+                            <select name="role" required
+                                style="width:100%;padding:10px 14px;background:#1f2937;border:1.5px solid rgba(255,255,255,0.08);border-radius:10px;color:#f1f5f9;font-family:inherit;font-size:14px;outline:none;">
+                                <option value="editor">✏️ Editor</option>
+                                <option value="viewer">👁️ Viewer</option>
+                            </select>
+                        </div>
+
+                        <!-- Submit -->
+                        <div class="col-md-3">
+                            <button type="submit"
+                                style="width:100%;padding:11px 20px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;"
+                                onmouseover="this.style.transform='translateY(-1px)'"
+                                onmouseout="this.style.transform='none'">
+                                <i class="fa-solid fa-plus me-1"></i> Grant Permission
+                            </button>
+                        </div>
+                    </div>
+
+                    <p style="font-size:12px;color:#475569;margin-top:14px;">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        Leave <strong>Subject</strong> empty to grant access to <strong>all subjects</strong> in that class.
+                        Subject-level permissions override class-level permissions.
+                    </p>
+                </form>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Subject data passed from Django — per class
+const classSubjects = {
+    {% for c in classes %}
+    "{{ c.id }}": [
+        {% for s in c.subjects.all %}
+        {"id": "{{ s.id }}", "name": "{{ s.name }}"},
+        {% endfor %}
+    ],
+    {% endfor %}
+};
+
+function loadSubjects(classId) {
+    const select = document.getElementById('subjectSelect');
+    select.innerHTML = '<option value="">All Subjects</option>';
+    if (!classId || !classSubjects[classId]) return;
+    classSubjects[classId].forEach(function(sub) {
+        const opt = document.createElement('option');
+        opt.value = sub.id;
+        opt.textContent = sub.name;
+        select.appendChild(opt);
+    });
+}
+</script>
+{% endblock %}

@@ -32,6 +32,13 @@ urlpatterns = [
     path('join-requests/<int:request_id>/reject/',  views.reject_join_request,  name='reject_join_request'),
 
     # -----------------------------------------------------------------------
+    # Teacher Permission Management (admin only)
+    # -----------------------------------------------------------------------
+    path('teacher-permissions/',                        views.teacher_permissions_view, name='teacher_permissions'),
+    path('teacher-permissions/grant/',                  views.grant_permission_view,    name='grant_permission'),
+    path('teacher-permissions/<int:perm_id>/revoke/',   views.revoke_permission_view,   name='revoke_permission'),
+
+    # -----------------------------------------------------------------------
     # REST API — for Power BI Web connector & external integrations
     # -----------------------------------------------------------------------
     path('api/marks/flat/', api_views.FlatMarksAPIView.as_view(), name='api_marks_flat'),

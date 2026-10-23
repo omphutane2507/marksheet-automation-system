@@ -248,3 +248,57 @@ class JoinRequest(models.Model):
             {'grade': 'D', 'min_percentage': 33.0, 'max_percentage': 60.0,  'description': 'Satisfactory / Pass'},
             {'grade': 'E', 'min_percentage': 0.0,  'max_percentage': 33.0,  'description': 'Needs Improvement / Fail'},
         ]
+
+
+# ---------------------------------------------------------------------------
+# Teacher Permission (Access Control per Class / Subject)
+# ---------------------------------------------------------------------------
+
+class TeacherPermission(models.Model):
+    """
+    Controls what a teacher can do inside a specific ClassRoom and optionally
+    a specific Subject within that classroom.
+
+    Permission resolution (most specific wins):
+      1. Subject-level  (teacher, classroom, subject)   → highest priority
+      2. Class-level    (teacher, classroom, subject=None) → fallback
+      3. No record      → no access at all
+
+    Roles:
+      editor  — can view AND enter / edit marks
+      viewer  — read-only, cannot save marks
+    """
+    ROLE_EDITOR = 'editor'
+    ROLE_VIEWER = 'viewer'
+    ROLE_CHOICES = [
+        (ROLE_EDITOR, 'Editor — can enter & edit marks'),
+        (ROLE_VIEWER, 'Viewer — read-only access'),
+    ]
+
+    teacher    = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='class_permissions'
+    )
+    classroom  = models.ForeignKey(
+        ClassRoom, on_delete=models.CASCADE, related_name='teacher_permissions'
+    )
+    subject    = models.ForeignKey(
+        Subject, on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='teacher_permissions',
+        help_text="Leave blank to apply to ALL subjects in this class"
+    )
+    role       = models.CharField(max_length=10, choices=ROLE_CHOICES, default=ROLE_VIEWER)
+    granted_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True,
+        related_name='permissions_granted'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('teacher', 'classroom', 'subject')
+        ordering = ['classroom', 'subject', 'teacher']
+
+    def __str__(self):
+        scope = self.subject.name if self.subject else "All Subjects"
+        return f"{self.teacher.username} → {self.classroom} / {scope} ({self.role})"
+

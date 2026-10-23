@@ -246,12 +246,17 @@
   <!-- Header -->
   <div class="page-header">
     <div class="page-badge"><i class="fa-solid fa-user-plus"></i> &nbsp;New Account</div>
-    <h1>Create Your Account</h1>
-    <p>Admin? Set up your school's workspace. Teacher? Join your admin's organisation.</p>
+    {% if active_tab == 'admin' %}
+      <h1>Create Admin Account</h1>
+      <p>Set up your school's isolated workspace. Share your username with teachers after registering.</p>
+    {% else %}
+      <h1>Create Teacher Account</h1>
+      <p>Join your school's workspace. You'll need your administrator's username to link your account.</p>
+    {% endif %}
   </div>
 
-  <!-- Role Tabs -->
-  <div class="role-tabs">
+  <!-- Role Tabs (hidden if coming from landing page with a specific tab) -->
+  <div class="role-tabs" id="roleTabs">
     <button class="role-tab-btn admin-tab {% if active_tab == 'admin' %}active{% endif %}"
             id="adminTabBtn" onclick="switchTab('admin')">
       <div class="tab-icon"><i class="fa-solid fa-shield-halved"></i></div>
@@ -397,11 +402,13 @@
           <button type="submit" class="submit-btn">
             <i class="fa-solid fa-shield-halved"></i> Create Admin Account
           </button>
-          <div class="signin-link">
-            Already have an account? <a href="{% url 'login' %}">Sign In</a>
-          </div>
         </div>
       </form>
+      <div style="text-align:center;margin-top:16px;">
+        <span class="signin-link">Already have an account? <a href="{% url 'login' %}">Sign In</a></span>
+        &nbsp;&nbsp;
+        <a href="{% url 'register' %}?tab=teacher" class="signin-link" style="color:var(--teal2);"><i class="fa-solid fa-chalkboard-user" style="font-size:12px"></i> Register as Teacher instead</a>
+      </div>
     </div>
 
     <!-- ─── TEACHER FORM ─────────────────────────────── -->
@@ -533,19 +540,35 @@
 
         <div class="submit-row">
           <button type="submit" class="submit-btn" onclick="syncAdminUsername()">
-            <i class="fa-solid fa-chalkboard-user"></i> Create Teacher Account
+            <i class="fa-solid fa-chalkboard-user"></i> Request Access
           </button>
-          <div class="signin-link">
-            Already have an account? <a href="{% url 'login' %}">Sign In</a>
-          </div>
         </div>
       </form>
+      <div style="text-align:center;margin-top:16px;">
+        <span class="signin-link">Already have an account? <a href="{% url 'login' %}">Sign In</a></span>
+        &nbsp;&nbsp;
+        <a href="{% url 'register' %}?tab=admin" class="signin-link" style="color:var(--purple2);"><i class="fa-solid fa-shield-halved" style="font-size:12px"></i> Register as Admin instead</a>
+      </div>
     </div>
 
   </div><!-- /form-card -->
 </div><!-- /page-wrap -->
 
 <script>
+  // ── Hide role-tabs if a specific tab is pre-selected from landing page ─
+  (function() {
+    const params  = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam === 'admin' || tabParam === 'teacher') {
+      // Hide the switcher tabs — user already chose their role on the landing page
+      const roleTabs = document.getElementById('roleTabs');
+      if (roleTabs) roleTabs.style.display = 'none';
+      // Remove the top border-radius gap since tabs are hidden
+      const formCard = document.querySelector('.form-card');
+      if (formCard) formCard.style.borderRadius = '16px';
+    }
+  })();
+
   // ── Tab switching ────────────────────────────────────
   function switchTab(tab) {
     const adminBtn    = document.getElementById('adminTabBtn');

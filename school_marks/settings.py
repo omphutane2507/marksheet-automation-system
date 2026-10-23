@@ -106,6 +106,14 @@ LOGOUT_REDIRECT_URL = '/'
 LOGIN_URL = '/login/'
 
 # ---------------------------------------------------------------------------
+# SESSION SECURITY
+# Session cookie expires when browser is closed (no persistent login).
+# ---------------------------------------------------------------------------
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True   # forget session on browser close
+SESSION_COOKIE_AGE = 60 * 60 * 8        # 8-hour hard cap even if browser stays open
+SESSION_SAVE_EVERY_REQUEST = True        # refresh the 8-hour window on activity
+
+# ---------------------------------------------------------------------------
 # DJANGO REST FRAMEWORK
 # ---------------------------------------------------------------------------
 REST_FRAMEWORK = {

@@ -13,18 +13,26 @@
     </div>
 
     <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if is_editor %}
         <a href="{% url 'marks_entry' classroom.id %}" class="btn-custom btn-primary-custom">
             <i class="fa-solid fa-pen-to-square"></i> Enter Marks
         </a>
+        {% endif %}
         <a href="{% url 'excel_export' classroom.id %}" class="btn-custom btn-success-custom">
             <i class="fa-solid fa-file-excel"></i> Export Excel
         </a>
+        {% if is_editor %}
         <button class="btn-custom btn-outline-custom" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
             <i class="fa-solid fa-book-medical"></i> Add Subject
         </button>
         <button class="btn-custom btn-outline-custom" data-bs-toggle="modal" data-bs-target="#addStudentModal">
             <i class="fa-solid fa-user-plus"></i> Add Student
         </button>
+        {% else %}
+        <span style="background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:6px 14px;font-size:13px;font-weight:600;">
+            <i class="fa-solid fa-eye me-1"></i> View Only
+        </span>
+        {% endif %}
     </div>
 </div>
 
